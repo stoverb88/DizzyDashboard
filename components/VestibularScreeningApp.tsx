@@ -23,6 +23,8 @@ export default function VestibularScreeningApp() {
   const [isMobile, setIsMobile] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
   const [appState, setAppState] = useState<'splash' | 'options' | 'eval' | 'find-chart'>('splash');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [evalKey, setEvalKey] = useState(0); // Key to force EvalTab re-render
 
   useEffect(() => {
     const checkMobile = () => {
@@ -53,6 +55,25 @@ export default function VestibularScreeningApp() {
 
   const handleBackToOptions = () => {
     setAppState('options');
+  };
+
+  const handleLogoClick = () => {
+    if (appState === 'eval') {
+      setShowConfirmDialog(true);
+    } else {
+      setAppState('options');
+    }
+  };
+
+  const handleConfirmReset = () => {
+    setShowConfirmDialog(false);
+    setActiveTab("questionnaire");
+    setEvalKey(prev => prev + 1); // Force EvalTab to re-render with fresh state
+    setAppState('options');
+  };
+
+  const handleCancelReset = () => {
+    setShowConfirmDialog(false);
   };
 
   const tabs = [
@@ -118,11 +139,15 @@ export default function VestibularScreeningApp() {
         flexDirection: 'column'
       }}>
           <div style={headerStyle}>
-             <div style={{
+             <div 
+               onClick={handleLogoClick}
+               style={{
                 fontWeight: 700,
                 fontSize: isMobile ? '1.5rem' : '1.8rem',
                 letterSpacing: '0.02em',
-                color: '#1A202C'
+                color: '#1A202C',
+                cursor: 'pointer',
+                userSelect: 'none'
              }}>
                 <span style={{ fontWeight: 900 }}>DIZZY</span>
                 <span style={{ fontWeight: 500 }}>DASHBOARD</span>
@@ -148,7 +173,7 @@ export default function VestibularScreeningApp() {
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.3 }}
                       >
-                        <EvalTab />
+                        <EvalTab key={evalKey} />
                       </motion.div>
                     )}
 
@@ -212,6 +237,86 @@ export default function VestibularScreeningApp() {
           </div>
       </div>
       {appState === 'eval' && <BottomNavBar tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />}
+      {showConfirmDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 2000,
+        }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            style={{
+              backgroundColor: 'white',
+              padding: '30px',
+              borderRadius: '12px',
+              maxWidth: '400px',
+              margin: '20px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+              textAlign: 'center'
+            }}
+          >
+            <h3 style={{ 
+              color: '#1A202C', 
+              marginBottom: '15px',
+              fontSize: '1.2rem',
+              fontWeight: '600'
+            }}>
+              Reset Evaluation?
+            </h3>
+            <p style={{ 
+              color: '#4A5568', 
+              marginBottom: '25px',
+              lineHeight: '1.5'
+            }}>
+              This will clear all your current answers and return you to the main menu. This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={handleCancelReset}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  border: '1px solid #E2E8F0',
+                  backgroundColor: 'white',
+                  color: '#4A5568',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReset}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                Reset Evaluation
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </>
   );
 } 
