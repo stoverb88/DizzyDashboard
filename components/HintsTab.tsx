@@ -134,23 +134,69 @@ export function HintsTab() {
 
 
   return (
-    <div style={{ padding: '10px', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f4f4f9' }}>
+    <div style={{ 
+      padding: '15px 10px', 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      backgroundColor: '#f4f4f9',
+      maxWidth: '100%',
+      overflow: 'hidden'
+    }}>
       {hintsData.map(item => (
-        <div key={item.id} style={{ marginBottom: '12px', backgroundColor: 'white', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <div key={item.id} style={{ 
+          marginBottom: '12px', 
+          backgroundColor: 'white', 
+          padding: '15px 12px', 
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          borderRadius: '8px',
+          maxWidth: '100%',
+          overflow: 'hidden'
+        }}>
           <h2 style={{ textAlign: 'center', color: '#333', margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>{item.title}</h2>
           <PeripheralCentralSlider 
             id={item.id}
             value={selections[item.id]}
             onChange={(val) => handleSelection(item.id, val)}
           />
-          <div style={{display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '13px'}}>
-            <div style={{width: '48%', textAlign: 'center', color: '#4b5563'}}>
-                <strong>{item.peripheralFinding}</strong>
-                <p style={{margin: '4px 0 0 0', fontSize: '11px'}}>{item.peripheralInfo}</p>
+          <div style={{
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            marginTop: '12px', 
+            fontSize: '13px',
+            gap: '8px'
+          }}>
+            <div style={{
+              flex: '1', 
+              textAlign: 'center', 
+              color: '#4b5563',
+              minWidth: 0, // Allow shrinking
+              padding: '0 4px'
+            }}>
+                <strong style={{display: 'block', marginBottom: '4px'}}>{item.peripheralFinding}</strong>
+                <p style={{
+                  margin: '0', 
+                  fontSize: '11px', 
+                  lineHeight: '1.3',
+                  wordWrap: 'break-word',
+                  hyphens: 'auto'
+                }}>{item.peripheralInfo}</p>
             </div>
-            <div style={{width: '48%', textAlign: 'center', color: '#4b5563'}}>
-                <strong>{item.centralFinding}</strong>
-                <p style={{margin: '4px 0 0 0', fontSize: '11px'}}>{item.centralInfo}</p>
+            <div style={{
+              flex: '1', 
+              textAlign: 'center', 
+              color: '#4b5563',
+              minWidth: 0, // Allow shrinking
+              padding: '0 4px'
+            }}>
+                <strong style={{display: 'block', marginBottom: '4px'}}>{item.centralFinding}</strong>
+                <p style={{
+                  margin: '0', 
+                  fontSize: '11px', 
+                  lineHeight: '1.3',
+                  wordWrap: 'break-word',
+                  hyphens: 'auto'
+                }}>{item.centralInfo}</p>
             </div>
           </div>
         </div>
