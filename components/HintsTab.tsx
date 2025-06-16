@@ -147,55 +147,57 @@ export function HintsTab() {
         <div key={item.id} style={{ 
           marginBottom: '12px', 
           backgroundColor: 'white', 
-          padding: '15px 12px', 
+          padding: '15px 20px', 
           boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           borderRadius: '8px',
           maxWidth: '100%',
           overflow: 'hidden'
         }}>
           <h2 style={{ textAlign: 'center', color: '#333', margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>{item.title}</h2>
-          <PeripheralCentralSlider 
-            id={item.id}
-            value={selections[item.id]}
-            onChange={(val) => handleSelection(item.id, val)}
-          />
+          <div style={{ maxWidth: '400px', margin: '0 auto', marginBottom: '12px' }}>
+            <PeripheralCentralSlider 
+              id={item.id}
+              value={selections[item.id]}
+              onChange={(val) => handleSelection(item.id, val)}
+            />
+          </div>
           <div style={{
             display: 'flex', 
             justifyContent: 'space-between', 
             marginTop: '12px', 
             fontSize: '13px',
-            gap: '8px'
+            gap: '12px',
+            maxWidth: '400px',
+            margin: '0 auto'
           }}>
             <div style={{
               flex: '1', 
               textAlign: 'center', 
               color: '#4b5563',
-              minWidth: 0, // Allow shrinking
-              padding: '0 4px'
+              minWidth: 0,
+              padding: '0 8px'
             }}>
                 <strong style={{display: 'block', marginBottom: '4px'}}>{item.peripheralFinding}</strong>
                 <p style={{
                   margin: '0', 
                   fontSize: '11px', 
-                  lineHeight: '1.3',
-                  wordWrap: 'break-word',
-                  hyphens: 'auto'
+                  lineHeight: '1.4',
+                  wordWrap: 'break-word'
                 }}>{item.peripheralInfo}</p>
             </div>
             <div style={{
               flex: '1', 
               textAlign: 'center', 
               color: '#4b5563',
-              minWidth: 0, // Allow shrinking
-              padding: '0 4px'
+              minWidth: 0,
+              padding: '0 8px'
             }}>
                 <strong style={{display: 'block', marginBottom: '4px'}}>{item.centralFinding}</strong>
                 <p style={{
                   margin: '0', 
                   fontSize: '11px', 
-                  lineHeight: '1.3',
-                  wordWrap: 'break-word',
-                  hyphens: 'auto'
+                  lineHeight: '1.4',
+                  wordWrap: 'break-word'
                 }}>{item.centralInfo}</p>
             </div>
           </div>
