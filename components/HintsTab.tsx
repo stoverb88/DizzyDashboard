@@ -48,18 +48,19 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '0 10px',
+    padding: '0',
     position: 'relative',
     cursor: 'pointer',
   };
 
   const knobStyle: React.CSSProperties = {
-    width: 'calc(50% - 5px)',
+    width: 'calc(50% - 10px)',
     height: '40px',
     borderRadius: '20px',
     backgroundColor: 'white',
     position: 'absolute',
     top: '5px',
+    left: '5px',
     transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
     boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
   };
@@ -67,7 +68,7 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
   const peripheralSelected = value === 'peripheral';
   const centralSelected = value === 'central';
 
-  const knobTransform = peripheralSelected ? 'translateX(0%)' : 'translateX(100%)';
+  const knobTransform = peripheralSelected ? 'translateX(0%)' : 'translateX(calc(100% + 10px))';
 
   const knobColor = peripheralSelected ? '#34d399' : (centralSelected ? '#f87171' : '#ffffff');
 
@@ -76,6 +77,7 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
     zIndex: 1,
     width: '50%',
     textAlign: 'center',
+    padding: '0 15px',
   };
 
   return (
