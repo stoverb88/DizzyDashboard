@@ -543,8 +543,32 @@ export function EvalTab() {
 
       {/* Navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px' }}>
-        <button onClick={handleBack} disabled={currentStep === 0} style={{...buttonStyle, backgroundColor: '#cbd5e0'}}>Back</button>
-        <button onClick={handleNext} disabled={currentStep === steps.length - 1} style={{...buttonStyle, backgroundColor: '#667eea'}}>Next</button>
+        <button 
+          onClick={handleBack} 
+          disabled={currentStep === 0} 
+          style={{
+            ...buttonStyle, 
+            backgroundColor: currentStep === 0 ? '#d1d5db' : '#667eea',
+            color: 'white',
+            cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
+            boxShadow: currentStep === 0 ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)'
+          }}
+        >
+          Back
+        </button>
+        <button 
+          onClick={handleNext} 
+          disabled={currentStep === steps.length - 1} 
+          style={{
+            ...buttonStyle, 
+            backgroundColor: currentStep === steps.length - 1 ? '#d1d5db' : '#667eea',
+            color: 'white',
+            cursor: currentStep === steps.length - 1 ? 'not-allowed' : 'pointer',
+            boxShadow: currentStep === steps.length - 1 ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)'
+          }}
+        >
+          Next
+        </button>
       </div>
     </div>
   );
