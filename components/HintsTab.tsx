@@ -147,14 +147,14 @@ export function HintsTab() {
         <div key={item.id} style={{ 
           marginBottom: '12px', 
           backgroundColor: 'white', 
-          padding: '15px 20px', 
+          padding: '15px 15px', 
           boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           borderRadius: '8px',
           maxWidth: '100%',
           overflow: 'hidden'
         }}>
           <h2 style={{ textAlign: 'center', color: '#333', margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>{item.title}</h2>
-          <div style={{ maxWidth: '400px', margin: '0 auto', marginBottom: '12px' }}>
+          <div style={{ maxWidth: '420px', margin: '0 auto', marginBottom: '12px', padding: '0 10px' }}>
             <PeripheralCentralSlider 
               id={item.id}
               value={selections[item.id]}
@@ -167,8 +167,9 @@ export function HintsTab() {
             marginTop: '12px', 
             fontSize: '13px',
             gap: '12px',
-            maxWidth: '400px',
-            margin: '0 auto'
+            maxWidth: '420px',
+            margin: '0 auto',
+            padding: '0 10px'
           }}>
             <div style={{
               flex: '1', 
