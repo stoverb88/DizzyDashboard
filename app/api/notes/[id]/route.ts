@@ -29,7 +29,13 @@ export async function GET(
       )
     }
 
-    const noteData: NoteData = JSON.parse(noteDataRaw as string)
+    // Handle both string and object responses from KV
+    let noteData: NoteData
+    if (typeof noteDataRaw === 'string') {
+      noteData = JSON.parse(noteDataRaw)
+    } else {
+      noteData = noteDataRaw as NoteData
+    }
     
     // Check if note has expired (just in case)
     const now = Date.now()
