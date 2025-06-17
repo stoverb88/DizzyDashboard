@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { VideoCarousel } from './VideoCarousel';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CanalSimulation } from './CanalSimulation';
 
 const maneuversData = [
   {
@@ -30,7 +29,6 @@ export function ManeuversTab() {
   const [maneuverIndex, setManeuverIndex] = useState(0);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isRecurrenceOpen, setIsRecurrenceOpen] = useState(false);
-  const [showSimulation, setShowSimulation] = useState(false);
 
   const handleNext = () => {
     setManeuverIndex((prev) => Math.min(prev + 1, maneuversData.length - 1));
@@ -38,6 +36,10 @@ export function ManeuversTab() {
 
   const handlePrev = () => {
     setManeuverIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleSimulationClick = () => {
+    alert('🔬 Interactive Canal Simulation\n\nComing Soon!\n\nWe\'re working on an amazing interactive simulation to help visualize otoconia movement during repositioning maneuvers. Stay tuned!');
   };
   
   const currentManeuver = maneuversData[maneuverIndex];
@@ -64,10 +66,6 @@ export function ManeuversTab() {
 
   return (
     <>
-      {showSimulation && (
-        <CanalSimulation onClose={() => setShowSimulation(false)} />
-      )}
-      
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f4f4f9' }}>
         <div style={{textAlign: 'center', padding: '20px 20px 0 20px'}}>
           <h2 style={{ color: '#333', margin: 0, paddingBottom: '10px' }}>{currentManeuver.title}</h2>
@@ -80,7 +78,7 @@ export function ManeuversTab() {
         <div style={{ padding: '20px', backgroundColor: 'white', borderTop: '1px solid #e2e8f0' }}>
           <div style={{ marginBottom: '20px', textAlign: 'center' }}>
             <button
-              onClick={() => setShowSimulation(true)}
+              onClick={handleSimulationClick}
               style={{
                 ...buttonStyle,
                 backgroundColor: '#059669',

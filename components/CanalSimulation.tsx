@@ -29,18 +29,18 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const CANVAS_WIDTH = 350
   const CANVAS_HEIGHT = 600
 
-  // Initialize particles in the canal cluster area (following user's drawing)
+  // Initialize particles in the canal cluster area (starting at bottom position)
   const initializeParticles = useCallback(() => {
     const newParticles: Particle[] = []
     const centerX = CANVAS_WIDTH / 2
     const centerY = CANVAS_HEIGHT / 2
     
-    // Start particles in the right side of the canal ring at a safe distance from boundaries
+    // Start particles at the bottom of the canal ring (6 o'clock position)
     const startRadius = 100 // Middle of the canal ring
-    const startAngle = 0 // Right side (3 o'clock position)
+    const startAngle = Math.PI / 2 // Bottom position (6 o'clock)
     
     for (let i = 0; i < 10; i++) {
-      const angle = startAngle + (Math.random() - 0.5) * 0.5 // Small spread around starting position
+      const angle = startAngle + (Math.random() - 0.5) * 0.3 // Small spread around bottom position
       const radius = startRadius + (Math.random() - 0.5) * 10 // Small radius variation
       
       newParticles.push({
@@ -127,84 +127,91 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return false
   }
 
-  // Check if particle is in utricle (settling area)
+  // Check if particle is in utricle (enlarged settling area that overlaps canal)
   const isInUtricle = (x: number, y: number): boolean => {
     const centerX = CANVAS_WIDTH / 2
     const centerY = CANVAS_HEIGHT / 2
-    // Utricle is the left rectangular region
-    return x >= centerX - 160 && x <= centerX - 100 && y >= centerY - 30 && y <= centerY + 30
+    // Enlarged utricle overlapping with canal on the left side
+    return x >= centerX - 180 && x <= centerX - 60 && y >= centerY - 50 && y <= centerY + 50
   }
 
   // Physics update
   const updatePhysics = useCallback(() => {
     if (!canvasRef.current) return
 
-    const newParticles = particlesRef.current.map(particle => {
-      // Apply gravity based on device orientation - increased strength for better responsiveness
-      const gravityX = orientation.gamma * 0.15  // Increased sensitivity
-      const gravityY = 0.1 // Constant downward gravity
+    const newParticles = particlesRef.current.map((particle, index) => {
+      // Strong bubble level style physics
+      const gravityX = Math.sin((orientation.beta || 0) * Math.PI / 180) * 1.2  // Even stronger
+      const gravityY = Math.cos((orientation.beta || 0) * Math.PI / 180) * 1.2  // Even stronger
+      
+      // Add gamma influence for left/right roll
+      const rollInfluence = (orientation.gamma || 0) * 0.4  // Stronger influence
 
       // Update velocity
-      let newVx = particle.vx + gravityX
+      let newVx = particle.vx + gravityX + rollInfluence
       let newVy = particle.vy + gravityY
 
-      // Apply damping
-      newVx *= 0.98
-      newVy *= 0.98
+      // Minimal damping to maintain momentum
+      newVx *= 0.995  // Very minimal damping
+      newVy *= 0.995
 
       // Predict new position
       let newX = particle.x + newVx
       let newY = particle.y + newVy
 
-      // Simple boundary checking - keep particles in canal ring
+      // Simplified particle collision to prevent clustering
+      particlesRef.current.forEach((otherParticle, otherIndex) => {
+        if (index !== otherIndex) {
+          const dx = newX - otherParticle.x
+          const dy = newY - otherParticle.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          const minDistance = particle.size + otherParticle.size
+          
+          if (distance < minDistance && distance > 0) {
+            // Gentle separation
+            const overlap = minDistance - distance
+            const separationX = (dx / distance) * (overlap * 0.2)
+            const separationY = (dy / distance) * (overlap * 0.2)
+            
+            newX += separationX
+            newY += separationY
+          }
+        }
+      })
+
+      // Simple circular boundary - only keep particles in canal ring
       const centerX = CANVAS_WIDTH / 2
       const centerY = CANVAS_HEIGHT / 2
       const distFromCenter = Math.sqrt((newX - centerX) ** 2 + (newY - centerY) ** 2)
       
-      // If particle goes outside canal boundaries, bounce it back
-      if (distFromCenter > 115 || distFromCenter < 85) {
-        // Calculate bounce direction
+      // Very simple boundary check - just keep in ring, no complex bouncing
+      if (distFromCenter > 120) {
         const angle = Math.atan2(newY - centerY, newX - centerX)
-        
-        // If too far out, push inward
-        if (distFromCenter > 115) {
-          newX = centerX + Math.cos(angle) * 110
-          newY = centerY + Math.sin(angle) * 110
-          newVx *= -0.3
-          newVy *= -0.3
-        }
-        // If too far in, push outward
-        else if (distFromCenter < 85) {
-          newX = centerX + Math.cos(angle) * 90
-          newY = centerY + Math.sin(angle) * 90
-          newVx *= -0.3
-          newVy *= -0.3
-        }
+        newX = centerX + Math.cos(angle) * 118
+        newY = centerY + Math.sin(angle) * 118
+      } else if (distFromCenter < 80) {
+        const angle = Math.atan2(newY - centerY, newX - centerX)
+        newX = centerX + Math.cos(angle) * 82
+        newY = centerY + Math.sin(angle) * 82
       }
 
-      // Simple cupula barrier - block particles at bottom center
-      const cupulaX = centerX - 20
-      const cupulaX2 = centerX + 20
-      const cupulaY = centerY + 80
-      const cupulaY2 = centerY + 110
+      // Minimal cupula interaction - just a small obstacle
+      const cupulaX = centerX
+      const cupulaY = centerY + 100 // Bottom position
+      const cupulaDistance = Math.sqrt((newX - cupulaX) ** 2 + (newY - cupulaY) ** 2)
       
-      if (newX >= cupulaX && newX <= cupulaX2 && newY >= cupulaY && newY <= cupulaY2) {
-        // Bounce off cupula
-        if (particle.x < centerX) {
-          newX = cupulaX - 5
-          newVx = Math.abs(newVx) * -1 // Push left
-        } else {
-          newX = cupulaX2 + 5
-          newVx = Math.abs(newVx) // Push right
-        }
-        newVy *= -0.5
+      if (cupulaDistance < 12) {
+        // Simple push away from cupula
+        const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
+        newX = cupulaX + Math.cos(pushAngle) * 15
+        newY = cupulaY + Math.sin(pushAngle) * 15
       }
 
-      // Check if settled in utricle
+      // Check if in utricle
       if (isInUtricle(newX, newY)) {
-        newVx *= 0.9
-        newVy *= 0.9
-        if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
+        newVx *= 0.95
+        newVy *= 0.95
+        if (Math.abs(newVx) < 0.05 && Math.abs(newVy) < 0.05) {
           setShowReset(true)
         }
       }
@@ -273,32 +280,55 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.fill()
     ctx.stroke()
 
-    // Draw cupula as a vertical flame-like barrier at bottom of canal
+    // Draw cupula as a vertical flame-like barrier at 6 o'clock position (bottom)
     ctx.strokeStyle = '#333'
     ctx.fillStyle = '#ff6b6b'
     ctx.lineWidth = 2
     
-    // Draw flame-like cupula shape - more prominent
-    ctx.beginPath()
-    const cupulaBaseX = centerX
-    const cupulaBaseY = centerY + 90
+    // Position cupula at 6 o'clock position at bottom of canal
+    const cupulaAngle = Math.PI / 2 // 90 degrees = 6 o'clock position (bottom)
+    const cupulaRadius = 100 // Middle of canal ring
+    const cupulaCenterX = centerX + Math.cos(cupulaAngle) * cupulaRadius
+    const cupulaCenterY = centerY + Math.sin(cupulaAngle) * cupulaRadius
+    const cupulaWidth = 18
     const cupulaHeight = 30
-    const cupulaWidth = 20
     
-    // Flame shape - curved upward and more visible
-    ctx.moveTo(cupulaBaseX - cupulaWidth, cupulaBaseY)
-    ctx.quadraticCurveTo(cupulaBaseX - cupulaWidth/2, cupulaBaseY - cupulaHeight, cupulaBaseX, cupulaBaseY - cupulaHeight - 8)
-    ctx.quadraticCurveTo(cupulaBaseX + cupulaWidth/2, cupulaBaseY - cupulaHeight, cupulaBaseX + cupulaWidth, cupulaBaseY)
+    // Calculate direction toward center for tip orientation
+    const tipAngle = Math.atan2(centerY - cupulaCenterY, centerX - cupulaCenterX)
+    const tipX = cupulaCenterX + Math.cos(tipAngle) * (cupulaHeight/2 + 5)
+    const tipY = cupulaCenterY + Math.sin(tipAngle) * (cupulaHeight/2 + 5)
+    
+    // Draw flame-like cupula shape pointing toward center
+    ctx.beginPath()
+    // Base of cupula (away from center)
+    const baseX1 = cupulaCenterX - Math.cos(tipAngle + Math.PI/2) * cupulaWidth/2
+    const baseY1 = cupulaCenterY - Math.sin(tipAngle + Math.PI/2) * cupulaWidth/2
+    const baseX2 = cupulaCenterX + Math.cos(tipAngle + Math.PI/2) * cupulaWidth/2
+    const baseY2 = cupulaCenterY + Math.sin(tipAngle + Math.PI/2) * cupulaWidth/2
+    
+    ctx.moveTo(baseX1, baseY1)
+    ctx.quadraticCurveTo(
+      cupulaCenterX + Math.cos(tipAngle) * cupulaHeight/4,
+      cupulaCenterY + Math.sin(tipAngle) * cupulaHeight/4,
+      tipX,
+      tipY
+    )
+    ctx.quadraticCurveTo(
+      cupulaCenterX + Math.cos(tipAngle) * cupulaHeight/4,
+      cupulaCenterY + Math.sin(tipAngle) * cupulaHeight/4,
+      baseX2,
+      baseY2
+    )
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
 
-    // Utricle (left side)
+    // Enlarged Utricle (left side) - overlapping with canal
     ctx.fillStyle = '#f0f0f0'
     ctx.strokeStyle = '#333'
     ctx.lineWidth = 3
-    ctx.fillRect(centerX - 160, centerY - 30, 60, 60)
-    ctx.strokeRect(centerX - 160, centerY - 30, 60, 60)
+    ctx.fillRect(centerX - 180, centerY - 50, 120, 100)
+    ctx.strokeRect(centerX - 180, centerY - 50, 120, 100)
 
     // Labels
     ctx.fillStyle = '#333'
@@ -422,7 +452,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
               width={CANVAS_WIDTH}
               height={CANVAS_HEIGHT}
               style={{
-                border: '2px solid #333',
                 borderRadius: '8px',
                 backgroundColor: 'white'
               }}
@@ -430,69 +459,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             
             <div style={{ textAlign: 'center', maxWidth: '300px' }}>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                Hold your phone upright and roll it left or right to move the otoconia through the canal
+                Hold your phone flat like a bubble level and tilt it forward/back to move the otoconia through the canal
               </p>
-              
-              {/* Orientation indicator */}
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                alignItems: 'center',
-                marginBottom: '10px',
-                fontSize: '12px',
-                color: '#888',
-                gap: '5px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span>Roll (γ): </span>
-                  <div style={{
-                    width: '100px',
-                    height: '20px',
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: '10px',
-                    margin: '0 10px',
-                    position: 'relative',
-                    border: '1px solid #ddd'
-                  }}>
-                    <div style={{
-                      width: '16px',
-                      height: '16px',
-                      backgroundColor: '#667eea',
-                      borderRadius: '50%',
-                      position: 'absolute',
-                      top: '2px',
-                      left: `${Math.max(2, Math.min(82, 42 + orientation.gamma * 0.5))}px`,
-                      transition: 'left 0.1s ease'
-                    }} />
-                  </div>
-                  <span>{Math.round(orientation.gamma)}°</span>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span>Tilt (β): </span>
-                  <div style={{
-                    width: '100px',
-                    height: '20px',
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: '10px',
-                    margin: '0 10px',
-                    position: 'relative',
-                    border: '1px solid #ddd'
-                  }}>
-                    <div style={{
-                      width: '16px',
-                      height: '16px',
-                      backgroundColor: '#10b981',
-                      borderRadius: '50%',
-                      position: 'absolute',
-                      top: '2px',
-                      left: `${Math.max(2, Math.min(82, 42 + orientation.beta * 0.3))}px`,
-                      transition: 'left 0.1s ease'
-                    }} />
-                  </div>
-                  <span>{Math.round(orientation.beta)}°</span>
-                </div>
-              </div>
               
               {showReset && (
                 <button
