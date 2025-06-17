@@ -35,12 +35,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     const centerX = CANVAS_WIDTH / 2
     const centerY = CANVAS_HEIGHT / 2
     
-    // With rotation, start particles in the upper-right part of the canal
-    // Rotate the starting position by about 45 degrees (π/4 radians)
-    const angle = -Math.PI / 4 // Upper right quadrant
-    const radius = 100 // Middle of the canal ring
-    const clusterX = centerX + Math.cos(angle) * radius
-    const clusterY = centerY + Math.sin(angle) * radius
+    // Start particles in the right side of the canal ring, away from cupula
+    const clusterX = centerX + 90 // Right side of the canal ring
+    const clusterY = centerY // Middle height of canal
     
     for (let i = 0; i < 10; i++) {
       newParticles.push({
@@ -103,16 +100,15 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     
     // Check if in the ring (between inner and outer radius)
     if (distFromCenter <= outerRadius && distFromCenter >= innerRadius) {
-      // Block the cupula area (7:30-8:00 position, rotated from 6:00)
-      const cupulaAngle = Math.atan2(y - centerY, x - centerX)
-      const cupulaStart = Math.PI * 0.4 // About 7:30 position
-      const cupulaEnd = Math.PI * 0.6   // About 8:00 position
+      // Block the cupula area - vertical flame-like barrier at bottom of canal
+      // Cupula should be at the bottom (6 o'clock) but as a vertical barrier
+      const cupulaX = centerX - 15 // Left edge of cupula
+      const cupulaX2 = centerX + 15 // Right edge of cupula
+      const cupulaY = centerY + 85 // Bottom of canal
+      const cupulaY2 = centerY + 105 // Extends down slightly
       
-      // Normalize angle to 0-2π
-      const normalizedAngle = cupulaAngle < 0 ? cupulaAngle + 2 * Math.PI : cupulaAngle
-      
-      // Block particles from entering cupula area
-      if (normalizedAngle >= cupulaStart && normalizedAngle <= cupulaEnd) {
+      // Block particles from passing through the cupula barrier
+      if (x >= cupulaX && x <= cupulaX2 && y >= cupulaY && y <= cupulaY2) {
         return false
       }
       
@@ -141,50 +137,48 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     if (!canvasRef.current) return
 
     const newParticles = particlesRef.current.map(particle => {
-      // Apply gravity based on device orientation
-      // For portrait mode held upright, we want gamma (left-right roll) to be the primary gravity direction
-      // When you roll right (positive gamma), particles should fall right/down the canal
-      const gravityX = orientation.gamma * 0.12  // Roll sensitivity
-      const gravityY = Math.abs(orientation.gamma) * 0.03 + 0.08 // Slight downward bias
+      // Apply gravity based on device orientation - reduced strength for fluid movement
+      const gravityX = orientation.gamma * 0.08  // Reduced from 0.12
+      const gravityY = Math.abs(orientation.gamma) * 0.02 + 0.05 // Reduced from 0.03 + 0.08
 
       // Update velocity
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Apply damping
-      newVx *= 0.99
-      newVy *= 0.99
+      // Apply damping for fluid-like movement
+      newVx *= 0.995 // Less damping for more fluid movement
+      newVy *= 0.995
 
       // Predict new position
       let newX = particle.x + newVx
       let newY = particle.y + newVy
 
-      // Collision detection and response
+      // Collision detection and response - gentler bouncing
       if (!isInsideCanal(newX, newY)) {
         // Try moving only in X direction
         if (isInsideCanal(newX, particle.y)) {
           newY = particle.y
-          newVy *= -0.4 // Bounce in Y direction
+          newVy *= -0.2 // Gentler bounce
         }
         // Try moving only in Y direction
         else if (isInsideCanal(particle.x, newY)) {
           newX = particle.x
-          newVx *= -0.4 // Bounce in X direction
+          newVx *= -0.2 // Gentler bounce
         }
-        // Can't move in either direction, bounce back
+        // Can't move in either direction, gentle push back
         else {
-          newX = particle.x
-          newY = particle.y
-          newVx *= -0.5
-          newVy *= -0.5
+          newX = particle.x + (Math.random() - 0.5) * 2 // Small random nudge
+          newY = particle.y + (Math.random() - 0.5) * 2
+          newVx *= -0.1
+          newVy *= -0.1
         }
       }
 
       // Check if settled in utricle
       if (isInUtricle(newX, newY)) {
-        newVx *= 0.7
-        newVy *= 0.7
-        if (Math.abs(newVx) < 0.08 && Math.abs(newVy) < 0.08) {
+        newVx *= 0.8
+        newVy *= 0.8
+        if (Math.abs(newVx) < 0.05 && Math.abs(newVy) < 0.05) {
           setShowReset(true)
         }
       }
@@ -252,19 +246,24 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(centerX, centerY, 100, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw cupula as a barrier (not a box) at 7:30-8:00 position
+    // Draw cupula as a vertical flame-like barrier at bottom of canal
     ctx.strokeStyle = '#333'
-    ctx.lineWidth = 4
-    ctx.beginPath()
-    const cupulaAngleStart = Math.PI * 0.4 // 7:30 position
-    const cupulaAngleEnd = Math.PI * 0.6   // 8:00 position
-    ctx.arc(centerX, centerY, 80, cupulaAngleStart, cupulaAngleEnd)
-    ctx.stroke()
+    ctx.fillStyle = '#ddd'
+    ctx.lineWidth = 2
     
-    // Thicker cupula barrier
-    ctx.lineWidth = 8
+    // Draw flame-like cupula shape
     ctx.beginPath()
-    ctx.arc(centerX, centerY, 90, cupulaAngleStart, cupulaAngleEnd)
+    const cupulaBaseX = centerX
+    const cupulaBaseY = centerY + 95
+    const cupulaHeight = 25
+    const cupulaWidth = 12
+    
+    // Flame shape - curved upward
+    ctx.moveTo(cupulaBaseX - cupulaWidth, cupulaBaseY)
+    ctx.quadraticCurveTo(cupulaBaseX - cupulaWidth/2, cupulaBaseY - cupulaHeight, cupulaBaseX, cupulaBaseY - cupulaHeight - 5)
+    ctx.quadraticCurveTo(cupulaBaseX + cupulaWidth/2, cupulaBaseY - cupulaHeight, cupulaBaseX + cupulaWidth, cupulaBaseY)
+    ctx.closePath()
+    ctx.fill()
     ctx.stroke()
 
     // Utricle (left side)
@@ -280,12 +279,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.textAlign = 'center'
     ctx.fillText('PSC', centerX, centerY - 140)
     ctx.fillText('UT', centerX - 130, centerY + 5)
-    
-    // Label for cupula (at the barrier position)
-    const cupulaLabelAngle = (cupulaAngleStart + cupulaAngleEnd) / 2
-    const cupulaLabelX = centerX + Math.cos(cupulaLabelAngle) * 140
-    const cupulaLabelY = centerY + Math.sin(cupulaLabelAngle) * 140
-    ctx.fillText('Cupula', cupulaLabelX, cupulaLabelY)
+    ctx.fillText('Cupula', centerX, centerY + 130)
 
     // Draw particles
     particlesRef.current.forEach(particle => {
