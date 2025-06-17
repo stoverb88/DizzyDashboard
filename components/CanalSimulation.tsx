@@ -35,14 +35,17 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     const centerX = CANVAS_WIDTH / 2
     const centerY = CANVAS_HEIGHT / 2
     
-    // Start particles in the lower right part of the canal (not below OT box)
-    const clusterX = centerX + 60 // Right side of the canal ring
-    const clusterY = centerY + 60 // Lower part of the canal ring
+    // With rotation, start particles in the upper-right part of the canal
+    // Rotate the starting position by about 45 degrees (π/4 radians)
+    const angle = -Math.PI / 4 // Upper right quadrant
+    const radius = 100 // Middle of the canal ring
+    const clusterX = centerX + Math.cos(angle) * radius
+    const clusterY = centerY + Math.sin(angle) * radius
     
     for (let i = 0; i < 10; i++) {
       newParticles.push({
         id: i,
-        x: clusterX + (Math.random() - 0.5) * 20,
+        x: clusterX + (Math.random() - 0.5) * 15,
         y: clusterY + (Math.random() - 0.5) * 15,
         vx: 0,
         vy: 0,
@@ -100,12 +103,19 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     
     // Check if in the ring (between inner and outer radius)
     if (distFromCenter <= outerRadius && distFromCenter >= innerRadius) {
-      return true
-    }
-
-    // Ampulla region (bottom extension) - connected to the ring
-    if (x >= centerX - 25 && x <= centerX + 25 && 
-        y >= centerY + innerRadius && y <= centerY + outerRadius + 20) {
+      // Block the cupula area (7:30-8:00 position, rotated from 6:00)
+      const cupulaAngle = Math.atan2(y - centerY, x - centerX)
+      const cupulaStart = Math.PI * 0.4 // About 7:30 position
+      const cupulaEnd = Math.PI * 0.6   // About 8:00 position
+      
+      // Normalize angle to 0-2π
+      const normalizedAngle = cupulaAngle < 0 ? cupulaAngle + 2 * Math.PI : cupulaAngle
+      
+      // Block particles from entering cupula area
+      if (normalizedAngle >= cupulaStart && normalizedAngle <= cupulaEnd) {
+        return false
+      }
+      
       return true
     }
 
@@ -242,13 +252,25 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(centerX, centerY, 100, 0, Math.PI * 2)
     ctx.fill()
 
-    // Ampulla (bottom)
-    ctx.fillStyle = '#f8f8f8'
-    ctx.fillRect(centerX - 25, centerY + 80, 50, 60)
-    ctx.strokeRect(centerX - 25, centerY + 80, 50, 60)
+    // Draw cupula as a barrier (not a box) at 7:30-8:00 position
+    ctx.strokeStyle = '#333'
+    ctx.lineWidth = 4
+    ctx.beginPath()
+    const cupulaAngleStart = Math.PI * 0.4 // 7:30 position
+    const cupulaAngleEnd = Math.PI * 0.6   // 8:00 position
+    ctx.arc(centerX, centerY, 80, cupulaAngleStart, cupulaAngleEnd)
+    ctx.stroke()
+    
+    // Thicker cupula barrier
+    ctx.lineWidth = 8
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, 90, cupulaAngleStart, cupulaAngleEnd)
+    ctx.stroke()
 
     // Utricle (left side)
     ctx.fillStyle = '#f0f0f0'
+    ctx.strokeStyle = '#333'
+    ctx.lineWidth = 3
     ctx.fillRect(centerX - 160, centerY - 30, 60, 60)
     ctx.strokeRect(centerX - 160, centerY - 30, 60, 60)
 
@@ -258,7 +280,12 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.textAlign = 'center'
     ctx.fillText('PSC', centerX, centerY - 140)
     ctx.fillText('UT', centerX - 130, centerY + 5)
-    ctx.fillText('OT', centerX, centerY + 170)
+    
+    // Label for cupula (at the barrier position)
+    const cupulaLabelAngle = (cupulaAngleStart + cupulaAngleEnd) / 2
+    const cupulaLabelX = centerX + Math.cos(cupulaLabelAngle) * 140
+    const cupulaLabelY = centerY + Math.sin(cupulaLabelAngle) * 140
+    ctx.fillText('Cupula', cupulaLabelX, cupulaLabelY)
 
     // Draw particles
     particlesRef.current.forEach(particle => {
