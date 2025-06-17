@@ -32,14 +32,18 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   // Initialize particles in the canal cluster area (following user's drawing)
   const initializeParticles = useCallback(() => {
     const newParticles: Particle[] = []
-    const clusterX = 180 // Right side of canal where particles start
-    const clusterY = 380 // Lower portion of canal
+    const centerX = CANVAS_WIDTH / 2
+    const centerY = CANVAS_HEIGHT / 2
+    
+    // Start particles in the lower right part of the canal (not below OT box)
+    const clusterX = centerX + 60 // Right side of the canal ring
+    const clusterY = centerY + 60 // Lower part of the canal ring
     
     for (let i = 0; i < 10; i++) {
       newParticles.push({
         id: i,
-        x: clusterX + (Math.random() - 0.5) * 30,
-        y: clusterY + (Math.random() - 0.5) * 20,
+        x: clusterX + (Math.random() - 0.5) * 20,
+        y: clusterY + (Math.random() - 0.5) * 15,
         vx: 0,
         vy: 0,
         size: 3 + Math.random() * 2,
@@ -89,22 +93,25 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     const centerX = CANVAS_WIDTH / 2
     const centerY = CANVAS_HEIGHT / 2
 
-    // Posterior semicircular canal shape - following user's proportions
-    // Main circular part
-    const radius = 120
+    // Main circular canal ring - this is the actual canal space
+    const outerRadius = 120
+    const innerRadius = 80
     const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
     
-    if (distFromCenter <= radius && distFromCenter >= radius - 40) {
+    // Check if in the ring (between inner and outer radius)
+    if (distFromCenter <= outerRadius && distFromCenter >= innerRadius) {
       return true
     }
 
-    // Ampulla region (bottom extension)
-    if (x >= centerX - 25 && x <= centerX + 25 && y >= centerY + radius - 40 && y <= centerY + radius + 40) {
+    // Ampulla region (bottom extension) - connected to the ring
+    if (x >= centerX - 25 && x <= centerX + 25 && 
+        y >= centerY + innerRadius && y <= centerY + outerRadius + 20) {
       return true
     }
 
-    // Utricle region (left side)
-    if (x >= centerX - radius - 40 && x <= centerX - radius + 20 && y >= centerY - 30 && y <= centerY + 30) {
+    // Utricle region (left side) - connected to the ring
+    if (x >= centerX - outerRadius - 20 && x <= centerX - innerRadius && 
+        y >= centerY - 30 && y <= centerY + 30) {
       return true
     }
 
@@ -115,7 +122,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const isInUtricle = (x: number, y: number): boolean => {
     const centerX = CANVAS_WIDTH / 2
     const centerY = CANVAS_HEIGHT / 2
-    return x >= centerX - 140 && x <= centerX - 100 && y >= centerY - 30 && y <= centerY + 30
+    // Utricle is the left rectangular region
+    return x >= centerX - 160 && x <= centerX - 100 && y >= centerY - 30 && y <= centerY + 30
   }
 
   // Physics update
@@ -126,35 +134,47 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       // Apply gravity based on device orientation
       // For portrait mode held upright, we want gamma (left-right roll) to be the primary gravity direction
       // When you roll right (positive gamma), particles should fall right/down the canal
-      const gravityX = orientation.gamma * 0.15  // Increased sensitivity for roll
-      const gravityY = Math.abs(orientation.gamma) * 0.05 + 0.1 // Slight downward bias, increases with roll
+      const gravityX = orientation.gamma * 0.12  // Roll sensitivity
+      const gravityY = Math.abs(orientation.gamma) * 0.03 + 0.08 // Slight downward bias
 
       // Update velocity
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
       // Apply damping
-      newVx *= 0.98
-      newVy *= 0.98
+      newVx *= 0.99
+      newVy *= 0.99
 
-      // Update position
+      // Predict new position
       let newX = particle.x + newVx
       let newY = particle.y + newVy
 
-      // Boundary collision detection
+      // Collision detection and response
       if (!isInsideCanal(newX, newY)) {
-        // Bounce back into canal
-        newX = particle.x - newVx * 0.5
-        newY = particle.y - newVy * 0.5
-        newVx *= -0.3
-        newVy *= -0.3
+        // Try moving only in X direction
+        if (isInsideCanal(newX, particle.y)) {
+          newY = particle.y
+          newVy *= -0.4 // Bounce in Y direction
+        }
+        // Try moving only in Y direction
+        else if (isInsideCanal(particle.x, newY)) {
+          newX = particle.x
+          newVx *= -0.4 // Bounce in X direction
+        }
+        // Can't move in either direction, bounce back
+        else {
+          newX = particle.x
+          newY = particle.y
+          newVx *= -0.5
+          newVy *= -0.5
+        }
       }
 
       // Check if settled in utricle
       if (isInUtricle(newX, newY)) {
-        newVx *= 0.5
-        newVy *= 0.5
-        if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
+        newVx *= 0.7
+        newVy *= 0.7
+        if (Math.abs(newVx) < 0.08 && Math.abs(newVy) < 0.08) {
           setShowReset(true)
         }
       }
