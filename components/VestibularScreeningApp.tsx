@@ -16,13 +16,14 @@ import { EvalTab } from "./EvalTab";
 import { SplashScreen } from './SplashScreen';
 import { PostSplashOptions } from './PostSplashOptions';
 import { FindChartNote } from './FindChartNote';
+import { InteractiveCanalModel } from './InteractiveCanalModel';
 import "../styles/globals.css";
 
 export default function VestibularScreeningApp() {
   const [activeTab, setActiveTab] = useState("questionnaire");
   const [isMobile, setIsMobile] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
-  const [appState, setAppState] = useState<'splash' | 'options' | 'eval' | 'find-chart'>('splash');
+  const [appState, setAppState] = useState<'splash' | 'options' | 'eval' | 'find-chart' | 'canal-model'>('splash');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [evalKey, setEvalKey] = useState(0); // Key to force EvalTab re-render
 
@@ -74,6 +75,15 @@ export default function VestibularScreeningApp() {
 
   const handleCancelReset = () => {
     setShowConfirmDialog(false);
+  };
+
+  const handleShowCanalModel = () => {
+    setAppState('canal-model');
+  };
+
+  const handleBackFromCanalModel = () => {
+    setAppState('eval');
+    setActiveTab('maneuvers'); // Return to maneuvers tab
   };
 
   const tabs = [
@@ -224,7 +234,7 @@ export default function VestibularScreeningApp() {
                         transition={{ duration: 0.3 }}
                         style={{ height: '100%' }}
                       >
-                        <ManeuversTab />
+                        <ManeuversTab onShowCanalModel={handleShowCanalModel} />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -232,6 +242,9 @@ export default function VestibularScreeningApp() {
               )}
               {appState === 'find-chart' && (
                 <FindChartNote key="find-chart" onBack={handleBackToOptions} />
+              )}
+              {appState === 'canal-model' && (
+                <InteractiveCanalModel key="canal-model" onBack={handleBackFromCanalModel} />
               )}
             </AnimatePresence>
           </div>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { VideoCarousel } from './VideoCarousel';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CanalSimulator } from './CanalSimulator';
 
 const maneuversData = [
   {
@@ -26,11 +25,14 @@ const maneuversData = [
   }
 ];
 
-export function ManeuversTab() {
+interface ManeuversTabProps {
+  onShowCanalModel?: () => void;
+}
+
+export function ManeuversTab({ onShowCanalModel }: ManeuversTabProps) {
   const [maneuverIndex, setManeuverIndex] = useState(0);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isRecurrenceOpen, setIsRecurrenceOpen] = useState(false);
-  const [showSimulator, setShowSimulator] = useState(false);
 
   const handleNext = () => {
     setManeuverIndex((prev) => Math.min(prev + 1, maneuversData.length - 1));
@@ -39,18 +41,6 @@ export function ManeuversTab() {
   const handlePrev = () => {
     setManeuverIndex((prev) => Math.max(0, prev - 1));
   };
-
-  const handleLaunchSimulator = () => {
-    setShowSimulator(true);
-  };
-
-  const handleBackFromSimulator = () => {
-    setShowSimulator(false);
-  };
-
-  if (showSimulator) {
-    return <CanalSimulator onBack={handleBackFromSimulator} />;
-  }
   
   const currentManeuver = maneuversData[maneuverIndex];
 
@@ -74,6 +64,16 @@ export function ManeuversTab() {
     boxShadow: 'none'
   };
 
+  const canalModelButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: '#48BB78',
+    boxShadow: '0 4px 15px rgba(72, 187, 120, 0.4)',
+    fontSize: '14px',
+    padding: '10px 20px',
+    margin: '0 auto',
+    display: 'block'
+  };
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f4f4f9' }}>
       <div style={{textAlign: 'center', padding: '20px 20px 0 20px'}}>
@@ -85,6 +85,18 @@ export function ManeuversTab() {
       </div>
 
       <div style={{ padding: '20px', backgroundColor: 'white', borderTop: '1px solid #e2e8f0' }}>
+        {/* Interactive Canal Model Button */}
+        {onShowCanalModel && (
+          <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+            <button
+              onClick={onShowCanalModel}
+              style={canalModelButtonStyle}
+            >
+              🔬 Interactive Canal Model
+            </button>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <button
             onClick={handlePrev}
@@ -111,29 +123,6 @@ export function ManeuversTab() {
           borderRadius: '12px',
           border: '1px solid #e2e8f0'
         }}>
-          <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-            <button
-              onClick={handleLaunchSimulator}
-              style={{
-                ...buttonStyle,
-                backgroundColor: '#10B981',
-                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
-                fontSize: '14px',
-                padding: '10px 20px'
-              }}
-            >
-              🔬 Launch Canal Simulator
-            </button>
-            <p style={{ 
-              color: '#6B7280', 
-              fontSize: '12px', 
-              margin: '8px 0 0 0',
-              fontStyle: 'italic'
-            }}>
-              Interactive model showing how particles move in the semicircular canal
-            </p>
-          </div>
-
           <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px', marginBottom: '16px' }}>
             <h3 
               style={{ color: '#1E40AF', fontSize: '16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '600', margin: 0 }}
