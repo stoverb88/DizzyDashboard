@@ -124,8 +124,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
     const newParticles = particlesRef.current.map(particle => {
       // Apply gravity based on device orientation
-      const gravityX = orientation.gamma * 0.1
-      const gravityY = orientation.beta * 0.1 + 0.2 // Always some downward gravity
+      // For portrait mode held upright, we want gamma (left-right roll) to be the primary gravity direction
+      // When you roll right (positive gamma), particles should fall right/down the canal
+      const gravityX = orientation.gamma * 0.15  // Increased sensitivity for roll
+      const gravityY = Math.abs(orientation.gamma) * 0.05 + 0.1 // Slight downward bias, increases with roll
 
       // Update velocity
       let newVx = particle.vx + gravityX
@@ -141,12 +143,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
       // Boundary collision detection
       if (!isInsideCanal(newX, newY)) {
-        // Find the closest point inside the canal
-        const centerX = CANVAS_WIDTH / 2
-        const centerY = CANVAS_HEIGHT / 2
-        const angle = Math.atan2(newY - centerY, newX - centerX)
-        const radius = 120
-        
         // Bounce back into canal
         newX = particle.x - newVx * 0.5
         newY = particle.y - newVy * 0.5
@@ -366,8 +362,42 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             
             <div style={{ textAlign: 'center', maxWidth: '300px' }}>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                Tilt your device to move the otoconia through the canal
+                Hold your phone upright and roll it left or right to move the otoconia through the canal
               </p>
+              
+              {/* Orientation indicator */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                marginBottom: '10px',
+                fontSize: '12px',
+                color: '#888'
+              }}>
+                <span>Roll: </span>
+                <div style={{
+                  width: '100px',
+                  height: '20px',
+                  backgroundColor: '#f0f0f0',
+                  borderRadius: '10px',
+                  margin: '0 10px',
+                  position: 'relative',
+                  border: '1px solid #ddd'
+                }}>
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    backgroundColor: '#667eea',
+                    borderRadius: '50%',
+                    position: 'absolute',
+                    top: '2px',
+                    left: `${Math.max(2, Math.min(82, 42 + orientation.gamma * 0.5))}px`,
+                    transition: 'left 0.1s ease'
+                  }} />
+                </div>
+                <span>{Math.round(orientation.gamma)}°</span>
+              </div>
+              
               {showReset && (
                 <button
                   onClick={initializeParticles}
