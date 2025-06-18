@@ -39,19 +39,22 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
 
-  // Vestibule dimensions (large bulbous chamber on right side)
-  const VESTIBULE_CENTER_X = CENTER_X + OUTER_RADIUS + 40
-  const VESTIBULE_CENTER_Y = CENTER_Y
+  // Vestibule dimensions (large bulbous chamber at 4 o'clock position)
+  const VESTIBULE_ANGLE = Math.PI / 3 // 4 o'clock position (60 degrees)
+  const VESTIBULE_CENTER_X = CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 40)
+  const VESTIBULE_CENTER_Y = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 40)
   const VESTIBULE_RADIUS = 60 // Much larger to cover the green area
 
-  // Initialize 4 particles at bottom of ring
+  // Initialize 4 particles clustered on LEFT side of cupula
   const initializeParticles = useCallback(() => {
     const newParticles: Particle[] = []
-    const startAngle = Math.PI / 2 // Bottom of ring (6 o'clock)
+    const cupulaAngle = Math.PI / 2 // Bottom of ring (6 o'clock)
+    const leftSideAngle = cupulaAngle - Math.PI / 6 // Left side of cupula (30 degrees left)
     const ringCenter = (OUTER_RADIUS + INNER_RADIUS) / 2 // Middle of tube
     
     for (let i = 0; i < 4; i++) {
-      const angle = startAngle + (i - 1.5) * 0.1 // Spread particles slightly
+      // Cluster all particles tightly on left side of cupula
+      const angle = leftSideAngle + (i - 1.5) * 0.05 // Tight clustering
       newParticles.push({
         id: i,
         x: CENTER_X + Math.cos(angle) * ringCenter,
@@ -374,29 +377,56 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw vestibule (large bulbous chamber on right side)
+    // Draw vestibule (large bulbous chamber at 4 o'clock position)
     ctx.fillStyle = '#87CEEB' // Same light blue
     ctx.beginPath()
     ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw connection between ring and vestibule
+    // Draw connection between ring and vestibule (moved to 4 o'clock)
+    const connectionX = CENTER_X + Math.cos(VESTIBULE_ANGLE) * OUTER_RADIUS
+    const connectionY = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * OUTER_RADIUS
+    const connectionWidth = 40
+    const connectionHeight = 30
+    
     ctx.fillStyle = '#87CEEB'
-    ctx.fillRect(CENTER_X + OUTER_RADIUS - 10, CENTER_Y - 20, 60, 40)
+    ctx.save()
+    ctx.translate(connectionX, connectionY)
+    ctx.rotate(VESTIBULE_ANGLE)
+    ctx.fillRect(-5, -connectionHeight/2, connectionWidth, connectionHeight)
+    ctx.restore()
 
-    // Draw ring borders
+    // Draw ring borders (but skip the connection area to avoid collision)
     ctx.strokeStyle = '#4682B4'
     ctx.lineWidth = 2
+    
+    // Draw outer ring border in segments, skipping vestibule connection area
     ctx.beginPath()
-    ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, Math.PI * 2)
+    // First segment: from 0 to connection start
+    const connectionStartAngle = VESTIBULE_ANGLE - 0.3
+    const connectionEndAngle = VESTIBULE_ANGLE + 0.3
+    ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, connectionStartAngle)
     ctx.stroke()
+    
+    // Second segment: from connection end to 2π
+    ctx.beginPath()
+    ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, connectionEndAngle, Math.PI * 2)
+    ctx.stroke()
+    
+    // Inner ring border (full circle - no connection issues)
     ctx.beginPath()
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw vestibule border
+    // Draw vestibule border (but skip the connection area)
     ctx.beginPath()
-    ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, 0, Math.PI * 2)
+    // Calculate the angle range that connects to the ring
+    const ringConnectionAngle = Math.atan2(connectionY - VESTIBULE_CENTER_Y, connectionX - VESTIBULE_CENTER_X)
+    const skipStartAngle = ringConnectionAngle - 0.4
+    const skipEndAngle = ringConnectionAngle + 0.4
+    
+    // Draw vestibule border in two segments, skipping connection area
+    ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, skipEndAngle, skipStartAngle + Math.PI * 2)
     ctx.stroke()
 
     // Draw cupula (vertical barrier at bottom of ring - 6 o'clock position)
