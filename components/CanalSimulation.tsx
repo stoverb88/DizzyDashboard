@@ -8,8 +8,7 @@ interface Particle {
   y: number
   vx: number
   vy: number
-  size: number
-  shape: number // 0-9 for different irregular shapes
+  radius: number
 }
 
 interface CanalSimulationProps {
@@ -22,41 +21,40 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [particles, setParticles] = useState<Particle[]>([])
   const [orientation, setOrientation] = useState({ beta: 0, gamma: 0 })
   const [permissionGranted, setPermissionGranted] = useState(false)
-  const [showReset, setShowReset] = useState(false)
   const particlesRef = useRef<Particle[]>([])
 
-  // Canvas dimensions
-  const CANVAS_WIDTH = 350
-  const CANVAS_HEIGHT = 600
+  // Canvas dimensions - optimized for mobile
+  const CANVAS_WIDTH = 320
+  const CANVAS_HEIGHT = 320
+  const CENTER_X = CANVAS_WIDTH / 2
+  const CENTER_Y = CANVAS_HEIGHT / 2
+  
+  // Ring dimensions
+  const OUTER_RADIUS = 120
+  const INNER_RADIUS = 80
+  const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
+  const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
 
-  // Initialize particles in the canal cluster area (starting at bottom position)
+  // Initialize 4 particles at bottom of ring
   const initializeParticles = useCallback(() => {
     const newParticles: Particle[] = []
-    const centerX = CANVAS_WIDTH / 2
-    const centerY = CANVAS_HEIGHT / 2
+    const startAngle = Math.PI / 2 // Bottom of ring (6 o'clock)
+    const ringCenter = (OUTER_RADIUS + INNER_RADIUS) / 2 // Middle of tube
     
-    // Start particles at the bottom of the canal ring (6 o'clock position)
-    const startRadius = 100 // Middle of the canal ring
-    const startAngle = Math.PI / 2 // Bottom position (6 o'clock)
-    
-    for (let i = 0; i < 10; i++) {
-      const angle = startAngle + (Math.random() - 0.5) * 0.3 // Small spread around bottom position
-      const radius = startRadius + (Math.random() - 0.5) * 10 // Small radius variation
-      
+    for (let i = 0; i < 4; i++) {
+      const angle = startAngle + (i - 1.5) * 0.1 // Spread particles slightly
       newParticles.push({
         id: i,
-        x: centerX + Math.cos(angle) * radius,
-        y: centerY + Math.sin(angle) * radius,
+        x: CENTER_X + Math.cos(angle) * ringCenter,
+        y: CENTER_Y + Math.sin(angle) * ringCenter,
         vx: 0,
         vy: 0,
-        size: 3 + Math.random() * 2,
-        shape: Math.floor(Math.random() * 10)
+        radius: PARTICLE_RADIUS
       })
     }
     
     setParticles(newParticles)
     particlesRef.current = newParticles
-    setShowReset(false)
   }, [])
 
   // Request device orientation permission
@@ -71,7 +69,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         console.error('Error requesting orientation permission:', error)
       }
     } else {
-      // For non-iOS devices, assume permission is granted
       setPermissionGranted(true)
     }
   }
@@ -91,48 +88,27 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return () => window.removeEventListener('deviceorientation', handleOrientation)
   }, [permissionGranted])
 
-  // Check if particle is inside canal boundaries (following user's drawing)
-  const isInsideCanal = (x: number, y: number): boolean => {
-    const centerX = CANVAS_WIDTH / 2
-    const centerY = CANVAS_HEIGHT / 2
-
-    // Main circular canal ring - this is the actual canal space
-    const outerRadius = 120
-    const innerRadius = 80
-    const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
-    
-    // Check if in the ring (between inner and outer radius)
-    if (distFromCenter <= outerRadius && distFromCenter >= innerRadius) {
-      // Block the cupula area - vertical flame-like barrier at bottom of canal
-      // Cupula should be at the bottom (6 o'clock) but as a vertical barrier
-      const cupulaX = centerX - 15 // Left edge of cupula
-      const cupulaX2 = centerX + 15 // Right edge of cupula
-      const cupulaY = centerY + 85 // Bottom of canal
-      const cupulaY2 = centerY + 105 // Extends down slightly
-      
-      // Block particles from passing through the cupula barrier
-      if (x >= cupulaX && x <= cupulaX2 && y >= cupulaY && y <= cupulaY2) {
-        return false
-      }
-      
-      return true
-    }
-
-    // Utricle region (left side) - connected to the ring
-    if (x >= centerX - outerRadius - 20 && x <= centerX - innerRadius && 
-        y >= centerY - 30 && y <= centerY + 30) {
-      return true
-    }
-
-    return false
+  // Check if point is inside the ring tube
+  const isInsideRing = (x: number, y: number): boolean => {
+    const distFromCenter = Math.sqrt((x - CENTER_X) ** 2 + (y - CENTER_Y) ** 2)
+    return distFromCenter >= INNER_RADIUS && distFromCenter <= OUTER_RADIUS
   }
 
-  // Check if particle is in utricle (enlarged settling area that overlaps canal)
-  const isInUtricle = (x: number, y: number): boolean => {
-    const centerX = CANVAS_WIDTH / 2
-    const centerY = CANVAS_HEIGHT / 2
-    // Enlarged utricle overlapping with canal on the left side
-    return x >= centerX - 180 && x <= centerX - 60 && y >= centerY - 50 && y <= centerY + 50
+  // Check collision with cupula (at bottom of ring)
+  const checkCupulaCollision = (x: number, y: number, radius: number): boolean => {
+    // Cupula positioned at bottom of ring (6 o'clock)
+    const cupulaX = CENTER_X
+    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
+    const cupulaWidth = TUBE_WIDTH * 0.6
+    const cupulaHeight = TUBE_WIDTH * 0.4
+    
+    // Simple rectangular collision for cupula
+    return (
+      x - radius < cupulaX + cupulaWidth / 2 &&
+      x + radius > cupulaX - cupulaWidth / 2 &&
+      y - radius < cupulaY + cupulaHeight / 2 &&
+      y + radius > cupulaY - cupulaHeight / 2
+    )
   }
 
   // Physics update
@@ -140,81 +116,104 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     if (!canvasRef.current) return
 
     const newParticles = particlesRef.current.map((particle, index) => {
-      // Strong bubble level style physics
-      const gravityX = Math.sin((orientation.beta || 0) * Math.PI / 180) * 1.2  // Even stronger
-      const gravityY = Math.cos((orientation.beta || 0) * Math.PI / 180) * 1.2  // Even stronger
-      
-      // Add gamma influence for left/right roll
-      const rollInfluence = (orientation.gamma || 0) * 0.4  // Stronger influence
+      // Convert device orientation to gravity vector
+      const gravityStrength = 0.3
+      const gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
+      const gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength
 
-      // Update velocity
-      let newVx = particle.vx + gravityX + rollInfluence
+      // Update velocity with gravity
+      let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Minimal damping to maintain momentum
-      newVx *= 0.995  // Very minimal damping
-      newVy *= 0.995
+      // Apply damping
+      newVx *= 0.98
+      newVy *= 0.98
 
       // Predict new position
       let newX = particle.x + newVx
       let newY = particle.y + newVy
 
-      // Simplified particle collision to prevent clustering
+      // Keep particle in ring boundaries
+      const distFromCenter = Math.sqrt((newX - CENTER_X) ** 2 + (newY - CENTER_Y) ** 2)
+      
+      if (distFromCenter > OUTER_RADIUS - particle.radius) {
+        // Hit outer wall
+        const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
+        newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
+        newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
+        
+        // Bounce off wall
+        const normalX = Math.cos(angle)
+        const normalY = Math.sin(angle)
+        const dotProduct = newVx * normalX + newVy * normalY
+        newVx = newVx - 2 * dotProduct * normalX
+        newVy = newVy - 2 * dotProduct * normalY
+        newVx *= 0.7 // Energy loss
+        newVy *= 0.7
+      } else if (distFromCenter < INNER_RADIUS + particle.radius) {
+        // Hit inner wall
+        const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
+        newX = CENTER_X + Math.cos(angle) * (INNER_RADIUS + particle.radius)
+        newY = CENTER_Y + Math.sin(angle) * (INNER_RADIUS + particle.radius)
+        
+        // Bounce off wall
+        const normalX = -Math.cos(angle)
+        const normalY = -Math.sin(angle)
+        const dotProduct = newVx * normalX + newVy * normalY
+        newVx = newVx - 2 * dotProduct * normalX
+        newVy = newVy - 2 * dotProduct * normalY
+        newVx *= 0.7
+        newVy *= 0.7
+      }
+
+      // Check cupula collision
+      if (checkCupulaCollision(newX, newY, particle.radius)) {
+        // Push particle away from cupula
+        const cupulaX = CENTER_X
+        const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
+        const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
+        const pushDistance = particle.radius + TUBE_WIDTH * 0.3
+        newX = cupulaX + Math.cos(pushAngle) * pushDistance
+        newY = cupulaY + Math.sin(pushAngle) * pushDistance
+        
+        // Reduce velocity
+        newVx *= 0.5
+        newVy *= 0.5
+      }
+
+      // Particle-to-particle collision
       particlesRef.current.forEach((otherParticle, otherIndex) => {
         if (index !== otherIndex) {
           const dx = newX - otherParticle.x
           const dy = newY - otherParticle.y
           const distance = Math.sqrt(dx * dx + dy * dy)
-          const minDistance = particle.size + otherParticle.size
+          const minDistance = particle.radius + otherParticle.radius
           
           if (distance < minDistance && distance > 0) {
-            // Gentle separation
+            // Separate particles
             const overlap = minDistance - distance
-            const separationX = (dx / distance) * (overlap * 0.2)
-            const separationY = (dy / distance) * (overlap * 0.2)
+            const separationX = (dx / distance) * (overlap * 0.5)
+            const separationY = (dy / distance) * (overlap * 0.5)
             
             newX += separationX
             newY += separationY
+            
+            // Elastic collision
+            const normalX = dx / distance
+            const normalY = dy / distance
+            const relativeVelocityX = newVx - otherParticle.vx
+            const relativeVelocityY = newVy - otherParticle.vy
+            const velocityAlongNormal = relativeVelocityX * normalX + relativeVelocityY * normalY
+            
+            if (velocityAlongNormal > 0) return // Particles separating
+            
+            const restitution = 0.8
+            const impulse = -(1 + restitution) * velocityAlongNormal / 2
+            newVx += impulse * normalX
+            newVy += impulse * normalY
           }
         }
       })
-
-      // Simple circular boundary - only keep particles in canal ring
-      const centerX = CANVAS_WIDTH / 2
-      const centerY = CANVAS_HEIGHT / 2
-      const distFromCenter = Math.sqrt((newX - centerX) ** 2 + (newY - centerY) ** 2)
-      
-      // Very simple boundary check - just keep in ring, no complex bouncing
-      if (distFromCenter > 120) {
-        const angle = Math.atan2(newY - centerY, newX - centerX)
-        newX = centerX + Math.cos(angle) * 118
-        newY = centerY + Math.sin(angle) * 118
-      } else if (distFromCenter < 80) {
-        const angle = Math.atan2(newY - centerY, newX - centerX)
-        newX = centerX + Math.cos(angle) * 82
-        newY = centerY + Math.sin(angle) * 82
-      }
-
-      // Minimal cupula interaction - just a small obstacle
-      const cupulaX = centerX
-      const cupulaY = centerY + 100 // Bottom position
-      const cupulaDistance = Math.sqrt((newX - cupulaX) ** 2 + (newY - cupulaY) ** 2)
-      
-      if (cupulaDistance < 12) {
-        // Simple push away from cupula
-        const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
-        newX = cupulaX + Math.cos(pushAngle) * 15
-        newY = cupulaY + Math.sin(pushAngle) * 15
-      }
-
-      // Check if in utricle
-      if (isInUtricle(newX, newY)) {
-        newVx *= 0.95
-        newVy *= 0.95
-        if (Math.abs(newVx) < 0.05 && Math.abs(newVy) < 0.05) {
-          setShowReset(true)
-        }
-      }
 
       return {
         ...particle,
@@ -259,110 +258,67 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Clear canvas
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
-    const centerX = CANVAS_WIDTH / 2
-    const centerY = CANVAS_HEIGHT / 2
-
-    // Draw canal outline (following user's drawing)
-    ctx.strokeStyle = '#333'
-    ctx.lineWidth = 3
-    ctx.fillStyle = '#f8f8f8'
-
-    // Main semicircular canal - outer boundary
+    // Draw outer ring (light blue fluid)
+    ctx.fillStyle = '#87CEEB' // Light blue
     ctx.beginPath()
-    ctx.arc(centerX, centerY, 115, 0, Math.PI * 2)
+    ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, Math.PI * 2)
     ctx.fill()
-    ctx.stroke()
 
-    // Inner canal boundary
+    // Draw inner hole (white)
     ctx.fillStyle = 'white'
     ctx.beginPath()
-    ctx.arc(centerX, centerY, 85, 0, Math.PI * 2)
+    ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.fill()
-    ctx.stroke()
 
-    // Draw cupula as a vertical flame-like barrier at 6 o'clock position (bottom)
-    ctx.strokeStyle = '#333'
-    ctx.fillStyle = '#ff6b6b'
+    // Draw ring border
+    ctx.strokeStyle = '#4682B4'
     ctx.lineWidth = 2
-    
-    // Position cupula at 6 o'clock position at bottom of canal
-    const cupulaAngle = Math.PI / 2 // 90 degrees = 6 o'clock position (bottom)
-    const cupulaRadius = 100 // Middle of canal ring
-    const cupulaCenterX = centerX + Math.cos(cupulaAngle) * cupulaRadius
-    const cupulaCenterY = centerY + Math.sin(cupulaAngle) * cupulaRadius
-    const cupulaWidth = 18
-    const cupulaHeight = 30
-    
-    // Calculate direction toward center for tip orientation
-    const tipAngle = Math.atan2(centerY - cupulaCenterY, centerX - cupulaCenterX)
-    const tipX = cupulaCenterX + Math.cos(tipAngle) * (cupulaHeight/2 + 5)
-    const tipY = cupulaCenterY + Math.sin(tipAngle) * (cupulaHeight/2 + 5)
-    
-    // Draw flame-like cupula shape pointing toward center
     ctx.beginPath()
-    // Base of cupula (away from center)
-    const baseX1 = cupulaCenterX - Math.cos(tipAngle + Math.PI/2) * cupulaWidth/2
-    const baseY1 = cupulaCenterY - Math.sin(tipAngle + Math.PI/2) * cupulaWidth/2
-    const baseX2 = cupulaCenterX + Math.cos(tipAngle + Math.PI/2) * cupulaWidth/2
-    const baseY2 = cupulaCenterY + Math.sin(tipAngle + Math.PI/2) * cupulaWidth/2
-    
-    ctx.moveTo(baseX1, baseY1)
-    ctx.quadraticCurveTo(
-      cupulaCenterX + Math.cos(tipAngle) * cupulaHeight/4,
-      cupulaCenterY + Math.sin(tipAngle) * cupulaHeight/4,
-      tipX,
-      tipY
-    )
-    ctx.quadraticCurveTo(
-      cupulaCenterX + Math.cos(tipAngle) * cupulaHeight/4,
-      cupulaCenterY + Math.sin(tipAngle) * cupulaHeight/4,
-      baseX2,
-      baseY2
-    )
-    ctx.closePath()
-    ctx.fill()
+    ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Enlarged Utricle (left side) - overlapping with canal
-    ctx.fillStyle = '#f0f0f0'
-    ctx.strokeStyle = '#333'
-    ctx.lineWidth = 3
-    ctx.fillRect(centerX - 180, centerY - 50, 120, 100)
-    ctx.strokeRect(centerX - 180, centerY - 50, 120, 100)
-
-    // Labels
-    ctx.fillStyle = '#333'
-    ctx.font = '16px Arial'
-    ctx.textAlign = 'center'
-    ctx.fillText('PSC', centerX, centerY - 140)
-    ctx.fillText('UT', centerX - 130, centerY + 5)
-    ctx.fillText('Cupula', centerX, centerY + 130)
-
-    // Draw particles
-    particlesRef.current.forEach(particle => {
-      ctx.fillStyle = '#dc2626' // Red color like in user's drawing
+    // Draw cupula (at bottom of ring)
+    const cupulaX = CENTER_X
+    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
+    const cupulaWidth = TUBE_WIDTH * 0.6
+    const cupulaHeight = TUBE_WIDTH * 0.4
+    
+    ctx.fillStyle = '#8B4513' // Brown color for cupula
+    ctx.fillRect(
+      cupulaX - cupulaWidth / 2,
+      cupulaY - cupulaHeight / 2,
+      cupulaWidth,
+      cupulaHeight
+    )
+    
+    // Draw cupula hair-like structures
+    ctx.strokeStyle = '#654321'
+    ctx.lineWidth = 1
+    for (let i = 0; i < 5; i++) {
+      const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 4) * (i + 1)
       ctx.beginPath()
-      
-      // Draw irregular particle shapes
-      const sides = 6 + (particle.shape % 4)
-      const angleStep = (Math.PI * 2) / sides
-      ctx.moveTo(
-        particle.x + Math.cos(0) * particle.size,
-        particle.y + Math.sin(0) * particle.size
-      )
-      
-      for (let i = 1; i <= sides; i++) {
-        const angle = i * angleStep
-        const radius = particle.size * (0.8 + Math.random() * 0.4)
-        ctx.lineTo(
-          particle.x + Math.cos(angle) * radius,
-          particle.y + Math.sin(angle) * radius
-        )
-      }
-      
-      ctx.closePath()
+      ctx.moveTo(hairX, cupulaY - cupulaHeight / 2)
+      ctx.lineTo(hairX + (Math.random() - 0.5) * 4, cupulaY - cupulaHeight / 2 - 8)
+      ctx.stroke()
+    }
+
+    // Draw particles (purple)
+    ctx.fillStyle = '#8A2BE2' // Purple
+    particlesRef.current.forEach(particle => {
+      ctx.beginPath()
+      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
       ctx.fill()
     })
+
+    // Draw labels
+    ctx.fillStyle = '#333'
+    ctx.font = '14px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('Semicircular Canal', CENTER_X, CENTER_Y - OUTER_RADIUS - 20)
+    ctx.fillText('Cupula', CENTER_X, CENTER_Y + OUTER_RADIUS + 20)
   }
 
   // Initialize particles on mount
@@ -398,7 +354,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         backgroundColor: 'white'
       }}>
         <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '600' }}>
-          Posterior Canal Simulation
+          Canal Ring Simulation
         </h2>
         <button
           onClick={onClose}
@@ -426,7 +382,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           <div style={{ textAlign: 'center', padding: '40px' }}>
             <h3>Enable Device Orientation</h3>
             <p style={{ marginBottom: '20px', color: '#666' }}>
-              This simulation uses your device's orientation to move the otoconia particles.
+              Tilt your device to move the particles through the canal ring.
             </p>
             <button
               onClick={requestOrientationPermission}
@@ -452,6 +408,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
               width={CANVAS_WIDTH}
               height={CANVAS_HEIGHT}
               style={{
+                border: '2px solid #ddd',
                 borderRadius: '8px',
                 backgroundColor: 'white'
               }}
@@ -459,27 +416,26 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             
             <div style={{ textAlign: 'center', maxWidth: '300px' }}>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                Hold your phone flat like a bubble level and tilt it forward/back to move the otoconia through the canal
+                Tilt your device to see how particles move through the semicircular canal. 
+                This demonstrates how BPPV occurs when otoconia become displaced.
               </p>
               
-              {showReset && (
-                <button
-                  onClick={initializeParticles}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: '#10b981',
-                    color: 'white',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    marginTop: '10px'
-                  }}
-                >
-                  Reset Particles
-                </button>
-              )}
+              <button
+                onClick={initializeParticles}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  marginTop: '10px'
+                }}
+              >
+                Reset Particles
+              </button>
             </div>
           </>
         )}
