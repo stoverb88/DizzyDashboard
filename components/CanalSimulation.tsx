@@ -39,10 +39,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
 
-  // Ampulla dimensions (bulbous chamber on right side)
-  const AMPULLA_CENTER_X = CENTER_X + OUTER_RADIUS + 25
-  const AMPULLA_CENTER_Y = CENTER_Y
-  const AMPULLA_RADIUS = 35
+  // Vestibule dimensions (large bulbous chamber on right side)
+  const VESTIBULE_CENTER_X = CENTER_X + OUTER_RADIUS + 40
+  const VESTIBULE_CENTER_Y = CENTER_Y
+  const VESTIBULE_RADIUS = 60 // Much larger to cover the green area
 
   // Initialize 4 particles at bottom of ring
   const initializeParticles = useCallback(() => {
@@ -107,26 +107,26 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return distFromCenter >= INNER_RADIUS && distFromCenter <= OUTER_RADIUS
   }
 
-  // Check if point is inside the ampulla
-  const isInsideAmpulla = (x: number, y: number): boolean => {
-    const distFromAmpullaCenter = Math.sqrt((x - AMPULLA_CENTER_X) ** 2 + (y - AMPULLA_CENTER_Y) ** 2)
-    return distFromAmpullaCenter <= AMPULLA_RADIUS
+  // Check if point is inside the vestibule
+  const isInsideVestibule = (x: number, y: number): boolean => {
+    const distFromVestibuleCenter = Math.sqrt((x - VESTIBULE_CENTER_X) ** 2 + (y - VESTIBULE_CENTER_Y) ** 2)
+    return distFromVestibuleCenter <= VESTIBULE_RADIUS
   }
 
-  // Check if point is in valid canal space (ring or ampulla)
+  // Check if point is in valid canal space (ring or vestibule)
   const isInValidSpace = (x: number, y: number): boolean => {
-    return isInsideRing(x, y) || isInsideAmpulla(x, y)
+    return isInsideRing(x, y) || isInsideVestibule(x, y)
   }
 
-  // Check collision with enlarged cupula (at connection between ring and ampulla)
+  // Check collision with cupula (vertical barrier at bottom of ring)
   const checkCupulaCollision = (x: number, y: number, radius: number): boolean => {
-    // Enlarged cupula positioned at the connection point between ring and ampulla
-    const cupulaX = CENTER_X + OUTER_RADIUS - 5
-    const cupulaY = CENTER_Y
-    const cupulaWidth = TUBE_WIDTH * 1.2  // Much larger
-    const cupulaHeight = TUBE_WIDTH * 0.8
+    // Cupula positioned at bottom of ring (6 o'clock position) as vertical barrier
+    const cupulaX = CENTER_X
+    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2 // Bottom of ring
+    const cupulaWidth = TUBE_WIDTH * 0.9  // 90% of tube width
+    const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
     
-    // Rectangular collision for enlarged cupula
+    // Rectangular collision for cupula
     return (
       x - radius < cupulaX + cupulaWidth / 2 &&
       x + radius > cupulaX - cupulaWidth / 2 &&
@@ -180,11 +180,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       let newX = particle.x + newVx
       let newY = particle.y + newVy
 
-      // Check if particle is in ampulla
-      const nowInAmpulla = isInsideAmpulla(newX, newY)
+      // Check if particle is in vestibule
+      const nowInVestibule = isInsideVestibule(newX, newY)
       
-      // If particle just entered ampulla, mark it
-      if (nowInAmpulla && !particle.inAmpulla) {
+      // If particle just entered vestibule, mark it
+      if (nowInVestibule && !particle.inAmpulla) {
         particle.inAmpulla = true
       }
 
@@ -222,26 +222,26 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           newVx *= 0.7
           newVy *= 0.7
         }
-      } else if (isInsideAmpulla(newX, newY)) {
-        // Particle is in ampulla - check ampulla boundaries
-        const distFromAmpullaCenter = Math.sqrt((newX - AMPULLA_CENTER_X) ** 2 + (newY - AMPULLA_CENTER_Y) ** 2)
+      } else if (isInsideVestibule(newX, newY)) {
+        // Particle is in vestibule - check vestibule boundaries
+        const distFromVestibuleCenter = Math.sqrt((newX - VESTIBULE_CENTER_X) ** 2 + (newY - VESTIBULE_CENTER_Y) ** 2)
         
-        if (distFromAmpullaCenter > AMPULLA_RADIUS - particle.radius) {
-          // Hit ampulla wall
-          const angle = Math.atan2(newY - AMPULLA_CENTER_Y, newX - AMPULLA_CENTER_X)
-          newX = AMPULLA_CENTER_X + Math.cos(angle) * (AMPULLA_RADIUS - particle.radius)
-          newY = AMPULLA_CENTER_Y + Math.sin(angle) * (AMPULLA_RADIUS - particle.radius)
+        if (distFromVestibuleCenter > VESTIBULE_RADIUS - particle.radius) {
+          // Hit vestibule wall
+          const angle = Math.atan2(newY - VESTIBULE_CENTER_Y, newX - VESTIBULE_CENTER_X)
+          newX = VESTIBULE_CENTER_X + Math.cos(angle) * (VESTIBULE_RADIUS - particle.radius)
+          newY = VESTIBULE_CENTER_Y + Math.sin(angle) * (VESTIBULE_RADIUS - particle.radius)
           
-          // Bounce off wall with more damping in ampulla
+          // Bounce off wall with more damping in vestibule
           const normalX = Math.cos(angle)
           const normalY = Math.sin(angle)
           const dotProduct = newVx * normalX + newVy * normalY
           newVx = newVx - 2 * dotProduct * normalX
           newVy = newVy - 2 * dotProduct * normalY
-          newVx *= 0.5 // More energy loss in ampulla
+          newVx *= 0.5 // More energy loss in vestibule
           newVy *= 0.5
           
-          // Start dissolving if particle has low velocity in ampulla
+          // Start dissolving if particle has low velocity in vestibule
           if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
             particle.dissolving = true
           }
@@ -255,13 +255,13 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         newVy *= 0.5
       }
 
-      // Check cupula collision (but allow passage to ampulla)
-      if (checkCupulaCollision(newX, newY, particle.radius) && !nowInAmpulla) {
-        // Push particle away from cupula if not entering ampulla
-        const cupulaX = CENTER_X + OUTER_RADIUS - 5
-        const cupulaY = CENTER_Y
+      // Check cupula collision (but allow passage to vestibule)
+      if (checkCupulaCollision(newX, newY, particle.radius) && !nowInVestibule) {
+        // Push particle away from cupula if not entering vestibule
+        const cupulaX = CENTER_X
+        const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
         const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
-        const pushDistance = particle.radius + TUBE_WIDTH * 0.6
+        const pushDistance = particle.radius + TUBE_WIDTH * 0.5
         newX = cupulaX + Math.cos(pushAngle) * pushDistance
         newY = cupulaY + Math.sin(pushAngle) * pushDistance
         
@@ -313,11 +313,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
     })
 
-    // Check if all particles are in ampulla and dissolved
-    const allParticlesInAmpulla = newParticles.every(p => p.inAmpulla)
-    const allParticlesDissolved = newParticles.every(p => p.radius <= 0)
+    // Check if all particles are in vestibule
+    const allParticlesInVestibule = newParticles.every(p => p.inAmpulla)
     
-    if (allParticlesInAmpulla && !epleyComplete) {
+    if (allParticlesInVestibule && !epleyComplete) {
       setEpleyComplete(true)
     }
 
@@ -375,15 +374,15 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw ampulla (bulbous chamber on right side)
+    // Draw vestibule (large bulbous chamber on right side)
     ctx.fillStyle = '#87CEEB' // Same light blue
     ctx.beginPath()
-    ctx.arc(AMPULLA_CENTER_X, AMPULLA_CENTER_Y, AMPULLA_RADIUS, 0, Math.PI * 2)
+    ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw connection between ring and ampulla
+    // Draw connection between ring and vestibule
     ctx.fillStyle = '#87CEEB'
-    ctx.fillRect(CENTER_X + OUTER_RADIUS - 5, CENTER_Y - 15, 35, 30)
+    ctx.fillRect(CENTER_X + OUTER_RADIUS - 10, CENTER_Y - 20, 60, 40)
 
     // Draw ring borders
     ctx.strokeStyle = '#4682B4'
@@ -395,16 +394,16 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw ampulla border
+    // Draw vestibule border
     ctx.beginPath()
-    ctx.arc(AMPULLA_CENTER_X, AMPULLA_CENTER_Y, AMPULLA_RADIUS, 0, Math.PI * 2)
+    ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw enlarged cupula (at connection between ring and ampulla)
-    const cupulaX = CENTER_X + OUTER_RADIUS - 5
-    const cupulaY = CENTER_Y
-    const cupulaWidth = TUBE_WIDTH * 1.2  // Much larger
-    const cupulaHeight = TUBE_WIDTH * 0.8
+    // Draw cupula (vertical barrier at bottom of ring - 6 o'clock position)
+    const cupulaX = CENTER_X
+    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2 // Bottom of ring
+    const cupulaWidth = TUBE_WIDTH * 0.9  // 90% of tube width
+    const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
     
     ctx.fillStyle = '#8B4513' // Brown color for cupula
     ctx.fillRect(
@@ -414,7 +413,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       cupulaHeight
     )
     
-    // Draw enlarged cupula wavy hair-like structures on top
+    // Draw cupula wavy hair-like structures on top
     ctx.strokeStyle = '#654321'
     ctx.lineWidth = 2
     for (let i = 0; i < 8; i++) {
@@ -469,7 +468,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.textAlign = 'center'
     ctx.fillText('Semicircular Canal', CENTER_X, CENTER_Y - OUTER_RADIUS - 20)
     ctx.fillText('Cupula', cupulaX, cupulaY + cupulaHeight / 2 + 20)
-    ctx.fillText('Ampulla', AMPULLA_CENTER_X, AMPULLA_CENTER_Y + AMPULLA_RADIUS + 15)
+    ctx.fillText('Vestibule', VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y + VESTIBULE_RADIUS + 15)
   }
 
   // Handle canvas click for Epley Complete reset
@@ -587,8 +586,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             
             <div style={{ textAlign: 'center', maxWidth: '300px' }}>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                Tilt your device to guide particles into the ampulla. 
-                Complete the Epley maneuver by getting all particles to dissolve in the ampulla chamber.
+                Tilt your device to guide particles into the vestibule. 
+                Complete the Epley maneuver by getting all particles to dissolve in the vestibule chamber.
               </p>
               
               <button
