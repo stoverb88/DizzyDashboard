@@ -122,27 +122,13 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       // Detect if device is roughly horizontal (gamma close to ±90 degrees)
       const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
       
-      // When horizontal, primarily use gamma for gravity direction and minimize beta influence
       let gravityX, gravityY
       
       if (isHorizontal) {
-        // When horizontal, use gamma as primary gravity direction
-        // Determine if we're in left-horizontal (gamma ~90) or right-horizontal (gamma ~-90)
-        const isLeftHorizontal = (orientation.gamma || 0) > 0
-        
-        if (isLeftHorizontal) {
-          // Left side down: gravity points left
-          gravityX = -gravityStrength
-          gravityY = 0
-        } else {
-          // Right side down: gravity points right  
-          gravityX = gravityStrength
-          gravityY = 0
-        }
-        
-        // Add minimal beta influence only for fine-tuning
-        gravityY += Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength * 0.2
-        
+        // When horizontal, use gamma for left-right gravity, but reduce beta interference
+        gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
+        // Greatly reduce beta influence when horizontal to prevent upward acceleration
+        gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength * 0.1
       } else {
         // When vertical (normal portrait/landscape), use both gamma and beta normally
         gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
