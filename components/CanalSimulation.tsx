@@ -9,6 +9,9 @@ interface Particle {
   vx: number
   vy: number
   radius: number
+  inAmpulla: boolean
+  dissolving: boolean
+  originalRadius: number
 }
 
 interface CanalSimulationProps {
@@ -21,6 +24,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [particles, setParticles] = useState<Particle[]>([])
   const [orientation, setOrientation] = useState({ beta: 0, gamma: 0 })
   const [permissionGranted, setPermissionGranted] = useState(false)
+  const [epleyComplete, setEpleyComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
 
   // Canvas dimensions - optimized for mobile
@@ -34,6 +38,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const INNER_RADIUS = 80
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
+
+  // Ampulla dimensions (bulbous chamber on right side)
+  const AMPULLA_CENTER_X = CENTER_X + OUTER_RADIUS + 25
+  const AMPULLA_CENTER_Y = CENTER_Y
+  const AMPULLA_RADIUS = 35
 
   // Initialize 4 particles at bottom of ring
   const initializeParticles = useCallback(() => {
@@ -49,12 +58,16 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         y: CENTER_Y + Math.sin(angle) * ringCenter,
         vx: 0,
         vy: 0,
-        radius: PARTICLE_RADIUS
+        radius: PARTICLE_RADIUS,
+        inAmpulla: false,
+        dissolving: false,
+        originalRadius: PARTICLE_RADIUS
       })
     }
     
     setParticles(newParticles)
     particlesRef.current = newParticles
+    setEpleyComplete(false)
   }, [])
 
   // Request device orientation permission
@@ -94,15 +107,26 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return distFromCenter >= INNER_RADIUS && distFromCenter <= OUTER_RADIUS
   }
 
-  // Check collision with cupula (at bottom of ring)
+  // Check if point is inside the ampulla
+  const isInsideAmpulla = (x: number, y: number): boolean => {
+    const distFromAmpullaCenter = Math.sqrt((x - AMPULLA_CENTER_X) ** 2 + (y - AMPULLA_CENTER_Y) ** 2)
+    return distFromAmpullaCenter <= AMPULLA_RADIUS
+  }
+
+  // Check if point is in valid canal space (ring or ampulla)
+  const isInValidSpace = (x: number, y: number): boolean => {
+    return isInsideRing(x, y) || isInsideAmpulla(x, y)
+  }
+
+  // Check collision with enlarged cupula (at connection between ring and ampulla)
   const checkCupulaCollision = (x: number, y: number, radius: number): boolean => {
-    // Cupula positioned at bottom of ring (6 o'clock)
-    const cupulaX = CENTER_X
-    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
-    const cupulaWidth = TUBE_WIDTH * 0.6
-    const cupulaHeight = TUBE_WIDTH * 0.4
+    // Enlarged cupula positioned at the connection point between ring and ampulla
+    const cupulaX = CENTER_X + OUTER_RADIUS - 5
+    const cupulaY = CENTER_Y
+    const cupulaWidth = TUBE_WIDTH * 1.2  // Much larger
+    const cupulaHeight = TUBE_WIDTH * 0.8
     
-    // Simple rectangular collision for cupula
+    // Rectangular collision for enlarged cupula
     return (
       x - radius < cupulaX + cupulaWidth / 2 &&
       x + radius > cupulaX - cupulaWidth / 2 &&
@@ -116,6 +140,15 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     if (!canvasRef.current) return
 
     const newParticles = particlesRef.current.map((particle, index) => {
+      // If particle is dissolving, just shrink it
+      if (particle.dissolving) {
+        const newRadius = Math.max(0, particle.radius - 0.02)
+        return {
+          ...particle,
+          radius: newRadius
+        }
+      }
+
       // Convert device orientation to gravity vector
       const gravityStrength = 0.3
       
@@ -147,46 +180,88 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       let newX = particle.x + newVx
       let newY = particle.y + newVy
 
-      // Keep particle in ring boundaries
+      // Check if particle is in ampulla
+      const nowInAmpulla = isInsideAmpulla(newX, newY)
+      
+      // If particle just entered ampulla, mark it
+      if (nowInAmpulla && !particle.inAmpulla) {
+        particle.inAmpulla = true
+      }
+
+      // Boundary checks for ring
       const distFromCenter = Math.sqrt((newX - CENTER_X) ** 2 + (newY - CENTER_Y) ** 2)
       
-      if (distFromCenter > OUTER_RADIUS - particle.radius) {
-        // Hit outer wall
+      if (isInsideRing(newX, newY)) {
+        // Particle is in ring - check ring boundaries
+        if (distFromCenter > OUTER_RADIUS - particle.radius) {
+          // Hit outer wall
+          const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
+          newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
+          newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
+          
+          // Bounce off wall
+          const normalX = Math.cos(angle)
+          const normalY = Math.sin(angle)
+          const dotProduct = newVx * normalX + newVy * normalY
+          newVx = newVx - 2 * dotProduct * normalX
+          newVy = newVy - 2 * dotProduct * normalY
+          newVx *= 0.7 // Energy loss
+          newVy *= 0.7
+        } else if (distFromCenter < INNER_RADIUS + particle.radius) {
+          // Hit inner wall
+          const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
+          newX = CENTER_X + Math.cos(angle) * (INNER_RADIUS + particle.radius)
+          newY = CENTER_Y + Math.sin(angle) * (INNER_RADIUS + particle.radius)
+          
+          // Bounce off wall
+          const normalX = -Math.cos(angle)
+          const normalY = -Math.sin(angle)
+          const dotProduct = newVx * normalX + newVy * normalY
+          newVx = newVx - 2 * dotProduct * normalX
+          newVy = newVy - 2 * dotProduct * normalY
+          newVx *= 0.7
+          newVy *= 0.7
+        }
+      } else if (isInsideAmpulla(newX, newY)) {
+        // Particle is in ampulla - check ampulla boundaries
+        const distFromAmpullaCenter = Math.sqrt((newX - AMPULLA_CENTER_X) ** 2 + (newY - AMPULLA_CENTER_Y) ** 2)
+        
+        if (distFromAmpullaCenter > AMPULLA_RADIUS - particle.radius) {
+          // Hit ampulla wall
+          const angle = Math.atan2(newY - AMPULLA_CENTER_Y, newX - AMPULLA_CENTER_X)
+          newX = AMPULLA_CENTER_X + Math.cos(angle) * (AMPULLA_RADIUS - particle.radius)
+          newY = AMPULLA_CENTER_Y + Math.sin(angle) * (AMPULLA_RADIUS - particle.radius)
+          
+          // Bounce off wall with more damping in ampulla
+          const normalX = Math.cos(angle)
+          const normalY = Math.sin(angle)
+          const dotProduct = newVx * normalX + newVy * normalY
+          newVx = newVx - 2 * dotProduct * normalX
+          newVy = newVy - 2 * dotProduct * normalY
+          newVx *= 0.5 // More energy loss in ampulla
+          newVy *= 0.5
+          
+          // Start dissolving if particle has low velocity in ampulla
+          if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
+            particle.dissolving = true
+          }
+        }
+      } else if (!isInValidSpace(newX, newY)) {
+        // Particle is outside valid space - push back to ring
         const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
         newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
         newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
-        
-        // Bounce off wall
-        const normalX = Math.cos(angle)
-        const normalY = Math.sin(angle)
-        const dotProduct = newVx * normalX + newVy * normalY
-        newVx = newVx - 2 * dotProduct * normalX
-        newVy = newVy - 2 * dotProduct * normalY
-        newVx *= 0.7 // Energy loss
-        newVy *= 0.7
-      } else if (distFromCenter < INNER_RADIUS + particle.radius) {
-        // Hit inner wall
-        const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
-        newX = CENTER_X + Math.cos(angle) * (INNER_RADIUS + particle.radius)
-        newY = CENTER_Y + Math.sin(angle) * (INNER_RADIUS + particle.radius)
-        
-        // Bounce off wall
-        const normalX = -Math.cos(angle)
-        const normalY = -Math.sin(angle)
-        const dotProduct = newVx * normalX + newVy * normalY
-        newVx = newVx - 2 * dotProduct * normalX
-        newVy = newVy - 2 * dotProduct * normalY
-        newVx *= 0.7
-        newVy *= 0.7
+        newVx *= 0.5
+        newVy *= 0.5
       }
 
-      // Check cupula collision
-      if (checkCupulaCollision(newX, newY, particle.radius)) {
-        // Push particle away from cupula
-        const cupulaX = CENTER_X
-        const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
+      // Check cupula collision (but allow passage to ampulla)
+      if (checkCupulaCollision(newX, newY, particle.radius) && !nowInAmpulla) {
+        // Push particle away from cupula if not entering ampulla
+        const cupulaX = CENTER_X + OUTER_RADIUS - 5
+        const cupulaY = CENTER_Y
         const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
-        const pushDistance = particle.radius + TUBE_WIDTH * 0.3
+        const pushDistance = particle.radius + TUBE_WIDTH * 0.6
         newX = cupulaX + Math.cos(pushAngle) * pushDistance
         newY = cupulaY + Math.sin(pushAngle) * pushDistance
         
@@ -197,7 +272,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
       // Particle-to-particle collision
       particlesRef.current.forEach((otherParticle, otherIndex) => {
-        if (index !== otherIndex) {
+        if (index !== otherIndex && !particle.dissolving && !otherParticle.dissolving) {
           const dx = newX - otherParticle.x
           const dy = newY - otherParticle.y
           const distance = Math.sqrt(dx * dx + dy * dy)
@@ -238,9 +313,20 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
     })
 
+    // Check if all particles are in ampulla and dissolved
+    const allParticlesInAmpulla = newParticles.every(p => p.inAmpulla)
+    const allParticlesDissolved = newParticles.every(p => p.radius <= 0)
+    
+    if (allParticlesInAmpulla && !epleyComplete) {
+      setEpleyComplete(true)
+    }
+
+    // Remove fully dissolved particles
+    const activeParticles = newParticles.filter(p => p.radius > 0)
+
     particlesRef.current = newParticles
     setParticles(newParticles)
-  }, [orientation])
+  }, [orientation, epleyComplete])
 
   // Animation loop
   useEffect(() => {
@@ -260,6 +346,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
     }
   }, [updatePhysics, permissionGranted])
+
+  // Handle Epley Complete click
+  const handleEpleyCompleteClick = () => {
+    initializeParticles()
+  }
 
   // Draw function
   const draw = () => {
@@ -284,7 +375,17 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw ring border
+    // Draw ampulla (bulbous chamber on right side)
+    ctx.fillStyle = '#87CEEB' // Same light blue
+    ctx.beginPath()
+    ctx.arc(AMPULLA_CENTER_X, AMPULLA_CENTER_Y, AMPULLA_RADIUS, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Draw connection between ring and ampulla
+    ctx.fillStyle = '#87CEEB'
+    ctx.fillRect(CENTER_X + OUTER_RADIUS - 5, CENTER_Y - 15, 35, 30)
+
+    // Draw ring borders
     ctx.strokeStyle = '#4682B4'
     ctx.lineWidth = 2
     ctx.beginPath()
@@ -294,11 +395,16 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw cupula (at bottom of ring)
-    const cupulaX = CENTER_X
-    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
-    const cupulaWidth = TUBE_WIDTH * 0.6
-    const cupulaHeight = TUBE_WIDTH * 0.4
+    // Draw ampulla border
+    ctx.beginPath()
+    ctx.arc(AMPULLA_CENTER_X, AMPULLA_CENTER_Y, AMPULLA_RADIUS, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Draw enlarged cupula (at connection between ring and ampulla)
+    const cupulaX = CENTER_X + OUTER_RADIUS - 5
+    const cupulaY = CENTER_Y
+    const cupulaWidth = TUBE_WIDTH * 1.2  // Much larger
+    const cupulaHeight = TUBE_WIDTH * 0.8
     
     ctx.fillStyle = '#8B4513' // Brown color for cupula
     ctx.fillRect(
@@ -308,31 +414,80 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       cupulaHeight
     )
     
-    // Draw cupula hair-like structures
+    // Draw enlarged cupula wavy hair-like structures on top
     ctx.strokeStyle = '#654321'
-    ctx.lineWidth = 1
-    for (let i = 0; i < 5; i++) {
-      const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 4) * (i + 1)
+    ctx.lineWidth = 2
+    for (let i = 0; i < 8; i++) {
+      const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 7) * i
       ctx.beginPath()
       ctx.moveTo(hairX, cupulaY - cupulaHeight / 2)
-      ctx.lineTo(hairX + (Math.random() - 0.5) * 4, cupulaY - cupulaHeight / 2 - 8)
+      // Make wavy hairs
+      const waveHeight = 12 + Math.sin(i * 0.8) * 4
+      const waveX = hairX + Math.sin(i * 1.2) * 3
+      ctx.lineTo(waveX, cupulaY - cupulaHeight / 2 - waveHeight)
       ctx.stroke()
     }
 
     // Draw particles (purple)
     ctx.fillStyle = '#8A2BE2' // Purple
     particlesRef.current.forEach(particle => {
-      ctx.beginPath()
-      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
-      ctx.fill()
+      if (particle.radius > 0) {
+        ctx.beginPath()
+        ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
+        ctx.fill()
+      }
     })
+
+    // Draw "Epley Complete" success indicator
+    if (epleyComplete) {
+      // Green circle with checkmark
+      ctx.fillStyle = '#10B981'
+      ctx.beginPath()
+      ctx.arc(CENTER_X, CENTER_Y, 25, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // White checkmark
+      ctx.strokeStyle = 'white'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(CENTER_X - 10, CENTER_Y)
+      ctx.lineTo(CENTER_X - 3, CENTER_Y + 7)
+      ctx.lineTo(CENTER_X + 10, CENTER_Y - 7)
+      ctx.stroke()
+      
+      // Add text below
+      ctx.fillStyle = '#10B981'
+      ctx.font = '12px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText('Epley Complete', CENTER_X, CENTER_Y + 45)
+      ctx.fillText('Tap to Reset', CENTER_X, CENTER_Y + 60)
+    }
 
     // Draw labels
     ctx.fillStyle = '#333'
     ctx.font = '14px Arial'
     ctx.textAlign = 'center'
     ctx.fillText('Semicircular Canal', CENTER_X, CENTER_Y - OUTER_RADIUS - 20)
-    ctx.fillText('Cupula', CENTER_X, CENTER_Y + OUTER_RADIUS + 20)
+    ctx.fillText('Cupula', cupulaX, cupulaY + cupulaHeight / 2 + 20)
+    ctx.fillText('Ampulla', AMPULLA_CENTER_X, AMPULLA_CENTER_Y + AMPULLA_RADIUS + 15)
+  }
+
+  // Handle canvas click for Epley Complete reset
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!epleyComplete) return
+    
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    const clickY = event.clientY - rect.top
+    
+    // Check if click is on the green circle
+    const distFromCenter = Math.sqrt((clickX - CENTER_X) ** 2 + (clickY - CENTER_Y) ** 2)
+    if (distFromCenter <= 25) {
+      handleEpleyCompleteClick()
+    }
   }
 
   // Initialize particles on mount
@@ -421,17 +576,19 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
               ref={canvasRef}
               width={CANVAS_WIDTH}
               height={CANVAS_HEIGHT}
+              onClick={handleCanvasClick}
               style={{
                 border: '2px solid #ddd',
                 borderRadius: '8px',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                cursor: epleyComplete ? 'pointer' : 'default'
               }}
             />
             
             <div style={{ textAlign: 'center', maxWidth: '300px' }}>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                Tilt your device to see how particles move through the semicircular canal. 
-                This demonstrates how BPPV occurs when otoconia become displaced.
+                Tilt your device to guide particles into the ampulla. 
+                Complete the Epley maneuver by getting all particles to dissolve in the ampulla chamber.
               </p>
               
               <button
