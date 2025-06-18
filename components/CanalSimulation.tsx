@@ -212,19 +212,39 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       if (isInsideRing(newX, newY)) {
         // Particle is in ring - check ring boundaries
         if (distFromCenter > OUTER_RADIUS - particle.radius) {
-          // Hit outer wall
-          const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
-          newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
-          newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
+          // Check if particle is trying to enter vestibule connection area
+          const angleToParticle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
+          const vestibuleConnectionStart = VESTIBULE_ANGLE - 0.4
+          const vestibuleConnectionEnd = VESTIBULE_ANGLE + 0.4
           
-          // Bounce off wall
-          const normalX = Math.cos(angle)
-          const normalY = Math.sin(angle)
-          const dotProduct = newVx * normalX + newVy * normalY
-          newVx = newVx - 2 * dotProduct * normalX
-          newVy = newVy - 2 * dotProduct * normalY
-          newVx *= 0.7 // Energy loss
-          newVy *= 0.7
+          // Normalize angles to handle wraparound
+          let normalizedAngle = angleToParticle
+          if (normalizedAngle < 0) normalizedAngle += Math.PI * 2
+          
+          let normalizedStart = vestibuleConnectionStart
+          if (normalizedStart < 0) normalizedStart += Math.PI * 2
+          
+          let normalizedEnd = vestibuleConnectionEnd
+          if (normalizedEnd < 0) normalizedEnd += Math.PI * 2
+          
+          // Check if particle is in vestibule connection area - if so, don't apply wall collision
+          const inConnectionArea = (normalizedAngle >= normalizedStart && normalizedAngle <= normalizedEnd)
+          
+          if (!inConnectionArea) {
+            // Hit outer wall (but not in connection area)
+            const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
+            newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
+            newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
+            
+            // Bounce off wall
+            const normalX = Math.cos(angle)
+            const normalY = Math.sin(angle)
+            const dotProduct = newVx * normalX + newVy * normalY
+            newVx = newVx - 2 * dotProduct * normalX
+            newVy = newVy - 2 * dotProduct * normalY
+            newVx *= 0.7 // Energy loss
+            newVy *= 0.7
+          }
         } else if (distFromCenter < INNER_RADIUS + particle.radius) {
           // Hit inner wall
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
@@ -241,10 +261,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           newVy *= 0.7
         }
       } else if (isInsideVestibule(newX, newY)) {
-        // Particle is in vestibule - check vestibule boundaries
+        // Particle is in vestibule - check vestibule boundaries (only for main chamber, not connection area)
         const distFromVestibuleCenter = Math.sqrt((newX - VESTIBULE_CENTER_X) ** 2 + (newY - VESTIBULE_CENTER_Y) ** 2)
         
-        if (distFromVestibuleCenter > VESTIBULE_RADIUS - particle.radius) {
+        // Only apply vestibule wall collision if particle is in the main circular chamber
+        if (distFromVestibuleCenter <= VESTIBULE_RADIUS && distFromVestibuleCenter > VESTIBULE_RADIUS - particle.radius) {
           // Hit vestibule wall
           const angle = Math.atan2(newY - VESTIBULE_CENTER_Y, newX - VESTIBULE_CENTER_X)
           newX = VESTIBULE_CENTER_X + Math.cos(angle) * (VESTIBULE_RADIUS - particle.radius)
@@ -258,17 +279,25 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           newVy = newVy - 2 * dotProduct * normalY
           newVx *= 0.5 // More energy loss in vestibule
           newVy *= 0.5
-          
-          // Start dissolving if particle has low velocity in vestibule
-          if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
-            particle.dissolving = true
-          }
+        }
+        
+        // Start dissolving if particle has low velocity in vestibule
+        if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
+          particle.dissolving = true
         }
       } else if (!isInValidSpace(newX, newY)) {
-        // Particle is outside valid space - push back to ring
-        const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
-        newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
-        newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
+        // Particle is outside valid space - push back to nearest valid area
+        if (isInsideRing(particle.x, particle.y)) {
+          // Was in ring, push back to ring
+          const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
+          newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
+          newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
+        } else {
+          // Push to vestibule
+          const angle = Math.atan2(newY - VESTIBULE_CENTER_Y, newX - VESTIBULE_CENTER_X)
+          newX = VESTIBULE_CENTER_X + Math.cos(angle) * (VESTIBULE_RADIUS - particle.radius)
+          newY = VESTIBULE_CENTER_Y + Math.sin(angle) * (VESTIBULE_RADIUS - particle.radius)
+        }
         newVx *= 0.5
         newVy *= 0.5
       }
