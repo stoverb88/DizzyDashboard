@@ -110,22 +110,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return distFromCenter >= INNER_RADIUS && distFromCenter <= OUTER_RADIUS
   }
 
-  // Check if point is inside the vestibule
-  const isInsideVestibule = (x: number, y: number): boolean => {
-    const distFromVestibuleCenter = Math.sqrt((x - VESTIBULE_CENTER_X) ** 2 + (y - VESTIBULE_CENTER_Y) ** 2)
-    return distFromVestibuleCenter <= VESTIBULE_RADIUS
-  }
-
-  // Check if point is in valid canal space (ring or vestibule)
-  const isInValidSpace = (x: number, y: number): boolean => {
-    return isInsideRing(x, y) || isInsideVestibule(x, y)
-  }
-
-  // Check collision with cupula (vertical barrier at bottom of ring)
+  // Check collision with cupula (vertical barrier at bottom of ring - flush with outer border)
   const checkCupulaCollision = (x: number, y: number, radius: number): boolean => {
-    // Cupula positioned at bottom of ring (6 o'clock position) as vertical barrier
+    // Cupula positioned flush with outer border of ring (moved down)
     const cupulaX = CENTER_X
-    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2 // Bottom of ring
+    const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
     const cupulaWidth = TUBE_WIDTH * 0.9  // 90% of tube width
     const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
     
@@ -136,6 +125,32 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       y - radius < cupulaY + cupulaHeight / 2 &&
       y + radius > cupulaY - cupulaHeight / 2
     )
+  }
+
+  // Check if point is inside the vestibule (expanded area including connection region)
+  const isInsideVestibule = (x: number, y: number): boolean => {
+    // Main vestibule chamber
+    const distFromVestibuleCenter = Math.sqrt((x - VESTIBULE_CENTER_X) ** 2 + (y - VESTIBULE_CENTER_Y) ** 2)
+    if (distFromVestibuleCenter <= VESTIBULE_RADIUS) return true
+    
+    // Extended vestibule area (the green shaded region) - connection bridge area
+    const connectionX = CENTER_X + Math.cos(VESTIBULE_ANGLE) * OUTER_RADIUS
+    const connectionY = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * OUTER_RADIUS
+    const connectionWidth = 50
+    const connectionHeight = 40
+    
+    // Check if point is in the connection/bridge area (rotated rectangle)
+    const dx = x - connectionX
+    const dy = y - connectionY
+    const rotatedX = dx * Math.cos(-VESTIBULE_ANGLE) - dy * Math.sin(-VESTIBULE_ANGLE)
+    const rotatedY = dx * Math.sin(-VESTIBULE_ANGLE) + dy * Math.cos(-VESTIBULE_ANGLE)
+    
+    return Math.abs(rotatedX) <= connectionWidth / 2 && Math.abs(rotatedY) <= connectionHeight / 2
+  }
+
+  // Check if point is in valid canal space (ring or vestibule)
+  const isInValidSpace = (x: number, y: number): boolean => {
+    return isInsideRing(x, y) || isInsideVestibule(x, y)
   }
 
   // Physics update
@@ -262,7 +277,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       if (checkCupulaCollision(newX, newY, particle.radius) && !nowInVestibule) {
         // Push particle away from cupula if not entering vestibule
         const cupulaX = CENTER_X
-        const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2
+        const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3)
         const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
         const pushDistance = particle.radius + TUBE_WIDTH * 0.5
         newX = cupulaX + Math.cos(pushAngle) * pushDistance
@@ -429,9 +444,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, skipEndAngle, skipStartAngle + Math.PI * 2)
     ctx.stroke()
 
-    // Draw cupula (vertical barrier at bottom of ring - 6 o'clock position)
+    // Draw cupula (vertical barrier at bottom of ring - flush with outer border)
     const cupulaX = CENTER_X
-    const cupulaY = CENTER_Y + (OUTER_RADIUS + INNER_RADIUS) / 2 // Bottom of ring
+    const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
     const cupulaWidth = TUBE_WIDTH * 0.9  // 90% of tube width
     const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
     
