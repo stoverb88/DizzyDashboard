@@ -27,33 +27,33 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [epleyComplete, setEpleyComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
 
-  // Canvas dimensions - optimized for mobile
-  const CANVAS_WIDTH = 320
-  const CANVAS_HEIGHT = 320
+  // Canvas dimensions - optimized for mobile (made larger)
+  const CANVAS_WIDTH = 400  // Increased from 320
+  const CANVAS_HEIGHT = 400 // Increased from 320
   const CENTER_X = CANVAS_WIDTH / 2
   const CENTER_Y = CANVAS_HEIGHT / 2
   
   // Ring dimensions
-  const OUTER_RADIUS = 120
-  const INNER_RADIUS = 80
+  const OUTER_RADIUS = 140  // Increased proportionally
+  const INNER_RADIUS = 100  // Increased proportionally
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
 
   // Vestibule dimensions (large bulbous chamber at 4 o'clock position)
   const VESTIBULE_ANGLE = Math.PI / 3 // 4 o'clock position (60 degrees)
-  const VESTIBULE_CENTER_X = CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 40)
-  const VESTIBULE_CENTER_Y = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 40)
-  const VESTIBULE_RADIUS = 60 // Much larger to cover the green area
+  const VESTIBULE_CENTER_X = CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50)  // Adjusted for larger canvas
+  const VESTIBULE_CENTER_Y = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50)  // Adjusted for larger canvas
+  const VESTIBULE_RADIUS = 70 // Increased proportionally
 
   // Initialize 4 particles clustered on LEFT side of cupula
   const initializeParticles = useCallback(() => {
     const newParticles: Particle[] = []
     const cupulaAngle = Math.PI / 2 // Bottom of ring (6 o'clock)
-    const leftSideAngle = cupulaAngle - Math.PI / 6 // Left side of cupula (30 degrees left)
+    const leftSideAngle = cupulaAngle + Math.PI / 6 // LEFT side of cupula (30 degrees right of bottom = 7-8 o'clock)
     const ringCenter = (OUTER_RADIUS + INNER_RADIUS) / 2 // Middle of tube
     
     for (let i = 0; i < 4; i++) {
-      // Cluster all particles tightly on left side of cupula
+      // Cluster all particles tightly on LEFT side of cupula
       const angle = leftSideAngle + (i - 1.5) * 0.05 // Tight clustering
       newParticles.push({
         id: i,
