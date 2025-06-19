@@ -112,11 +112,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
   // Check collision with cupula (vertical barrier at bottom of ring - flush with outer border)
   const checkCupulaCollision = (x: number, y: number, radius: number): boolean => {
-    // Cupula positioned flush with outer border of ring (moved down)
+    // Cupula positioned so its BOTTOM edge is flush with outer border
     const cupulaX = CENTER_X
-    const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
     const cupulaWidth = TUBE_WIDTH * 0.7  // Reasonable width for collision
-    const cupulaHeight = TUBE_WIDTH * 0.95 // HEIGHT is 95% of tube width (this is what you wanted!)
+    const cupulaHeight = TUBE_WIDTH * 0.95 // HEIGHT is 95% of tube width
+    const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2 // Position so bottom edge is flush with outer wall
     
     // Rectangular collision for cupula
     return (
@@ -306,7 +306,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       if (checkCupulaCollision(newX, newY, particle.radius) && !nowInVestibule) {
         // Push particle away from cupula if not entering vestibule
         const cupulaX = CENTER_X
-        const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3)
+        const cupulaHeight = TUBE_WIDTH * 0.95
+        const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
         const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
         const pushDistance = particle.radius + TUBE_WIDTH * 0.5
         newX = cupulaX + Math.cos(pushAngle) * pushDistance
@@ -475,9 +476,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
     // Draw cupula (vertical barrier at bottom of ring - flush with outer border)
     const cupulaX = CENTER_X
-    const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
     const cupulaWidth = TUBE_WIDTH * 0.7  // Reasonable visual width
     const cupulaHeight = TUBE_WIDTH * 0.95 // HEIGHT is 95% of tube width - much taller!
+    const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2 // Position so bottom edge is flush with outer wall
     
     ctx.fillStyle = '#8B4513' // Brown color for cupula
     ctx.fillRect(
