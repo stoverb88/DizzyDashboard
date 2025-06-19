@@ -1,8 +1,6 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { LeftEarIcon } from './icons/LeftEarIcon'
-import { RightEarIcon } from './icons/RightEarIcon'
 
 interface Particle {
   id: number
@@ -49,8 +47,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   // Get vestibule configuration based on ear type
   const getVestibuleConfig = () => {
     if (selectedEar === 'left') {
-      // Left ear: vestibule at 8 o'clock position (exact vertical mirror of right ear's 4 o'clock)
-      const VESTIBULE_ANGLE = Math.PI * 4/3 // 8 o'clock position (240 degrees)
+      // Left ear: vestibule at 4 o'clock position (120 degrees)
+      const VESTIBULE_ANGLE = Math.PI * 2/3 // 4 o'clock position (120 degrees)
       return {
         angle: VESTIBULE_ANGLE,
         centerX: CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
@@ -254,9 +252,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Apply damping
-      newVx *= 0.98
-      newVy *= 0.98
+      // Apply lighter damping to reduce sticking
+      newVx *= 0.995
+      newVy *= 0.995
 
       // Predict new position
       let newX = particle.x + newVx
@@ -269,16 +267,19 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         particle.inAmpulla = true
       }
 
-      // Boundary checks and physics (same logic as before)
+      // Boundary checks and physics - simplified and improved
       const distFromCenter = Math.sqrt((newX - CENTER_X) ** 2 + (newY - CENTER_Y) ** 2)
       const vestibuleConfig = getVestibuleConfig()
       
       if (isInsideRing(newX, newY)) {
+        // Outer boundary collision
         if (distFromCenter > OUTER_RADIUS - particle.radius) {
           const angleToParticle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
-          const vestibuleConnectionStart = vestibuleConfig.angle - 0.4
-          const vestibuleConnectionEnd = vestibuleConfig.angle + 0.4
+          const vestibuleConnectionStart = vestibuleConfig.angle - 0.3
+          const vestibuleConnectionEnd = vestibuleConfig.angle + 0.3
           
+          // Simplified angle check
+          let inConnectionArea = false
           let normalizedAngle = angleToParticle
           if (normalizedAngle < 0) normalizedAngle += Math.PI * 2
           
@@ -288,55 +289,78 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           let normalizedEnd = vestibuleConnectionEnd
           if (normalizedEnd < 0) normalizedEnd += Math.PI * 2
           
-          const inConnectionArea = (normalizedAngle >= normalizedStart && normalizedAngle <= normalizedEnd)
+          // Handle angle wrapping around 0/2π
+          if (normalizedEnd < normalizedStart) {
+            inConnectionArea = (normalizedAngle >= normalizedStart || normalizedAngle <= normalizedEnd)
+          } else {
+            inConnectionArea = (normalizedAngle >= normalizedStart && normalizedAngle <= normalizedEnd)
+          }
           
           if (!inConnectionArea) {
             const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
             newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
             newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
             
+            // Improved reflection with less energy loss
             const normalX = Math.cos(angle)
             const normalY = Math.sin(angle)
             const dotProduct = newVx * normalX + newVy * normalY
-            newVx = newVx - 2 * dotProduct * normalX
-            newVy = newVy - 2 * dotProduct * normalY
-            newVx *= 0.7
-            newVy *= 0.7
+            
+            // Only reflect if moving toward the wall
+            if (dotProduct > 0) {
+              newVx = newVx - 1.5 * dotProduct * normalX
+              newVy = newVy - 1.5 * dotProduct * normalY
+              newVx *= 0.85  // Less energy loss
+              newVy *= 0.85
+            }
           }
-        } else if (distFromCenter < INNER_RADIUS + particle.radius) {
+        } 
+        // Inner boundary collision
+        else if (distFromCenter < INNER_RADIUS + particle.radius) {
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
           newX = CENTER_X + Math.cos(angle) * (INNER_RADIUS + particle.radius)
           newY = CENTER_Y + Math.sin(angle) * (INNER_RADIUS + particle.radius)
           
+          // Improved reflection with less energy loss
           const normalX = -Math.cos(angle)
           const normalY = -Math.sin(angle)
           const dotProduct = newVx * normalX + newVy * normalY
-          newVx = newVx - 2 * dotProduct * normalX
-          newVy = newVy - 2 * dotProduct * normalY
-          newVx *= 0.7
-          newVy *= 0.7
+          
+          // Only reflect if moving toward the wall
+          if (dotProduct > 0) {
+            newVx = newVx - 1.5 * dotProduct * normalX
+            newVy = newVy - 1.5 * dotProduct * normalY
+            newVx *= 0.85  // Less energy loss
+            newVy *= 0.85
+          }
         }
       } else if (isInsideVestibule(newX, newY)) {
         const distFromVestibuleCenter = Math.sqrt((newX - vestibuleConfig.centerX) ** 2 + (newY - vestibuleConfig.centerY) ** 2)
         
-        if (distFromVestibuleCenter <= vestibuleConfig.radius && distFromVestibuleCenter > vestibuleConfig.radius - particle.radius) {
+        if (distFromVestibuleCenter > vestibuleConfig.radius - particle.radius) {
           const angle = Math.atan2(newY - vestibuleConfig.centerY, newX - vestibuleConfig.centerX)
           newX = vestibuleConfig.centerX + Math.cos(angle) * (vestibuleConfig.radius - particle.radius)
           newY = vestibuleConfig.centerY + Math.sin(angle) * (vestibuleConfig.radius - particle.radius)
           
+          // Gentler collision in vestibule
           const normalX = Math.cos(angle)
           const normalY = Math.sin(angle)
           const dotProduct = newVx * normalX + newVy * normalY
-          newVx = newVx - 2 * dotProduct * normalX
-          newVy = newVy - 2 * dotProduct * normalY
-          newVx *= 0.5
-          newVy *= 0.5
+          
+          if (dotProduct > 0) {
+            newVx = newVx - 1.2 * dotProduct * normalX
+            newVy = newVy - 1.2 * dotProduct * normalY
+            newVx *= 0.7  // More damping in vestibule for settling
+            newVy *= 0.7
+          }
         }
         
+        // Check for dissolution
         if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
           particle.dissolving = true
         }
       } else if (!isInValidSpace(newX, newY)) {
+        // Push particle back to valid space with minimal energy loss
         if (isInsideRing(particle.x, particle.y)) {
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
           newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
@@ -346,8 +370,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           newX = vestibuleConfig.centerX + Math.cos(angle) * (vestibuleConfig.radius - particle.radius)
           newY = vestibuleConfig.centerY + Math.sin(angle) * (vestibuleConfig.radius - particle.radius)
         }
-        newVx *= 0.5
-        newVy *= 0.5
+        newVx *= 0.8  // Less energy loss when correcting position
+        newVy *= 0.8
       }
 
       // Check cupula collision
@@ -360,11 +384,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         newX = cupulaX + Math.cos(pushAngle) * pushDistance
         newY = cupulaY + Math.sin(pushAngle) * pushDistance
         
-        newVx *= 0.5
-        newVy *= 0.5
+        newVx *= 0.7
+        newVy *= 0.7
       }
 
-      // Particle-to-particle collision (same logic as before)
+      // Particle-to-particle collision (keep existing logic)
       particlesRef.current.forEach((otherParticle, otherIndex) => {
         if (index !== otherIndex && !particle.dissolving && !otherParticle.dissolving) {
           const dx = newX - otherParticle.x
@@ -395,6 +419,15 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           }
         }
       })
+
+      // Add minimum velocity to prevent complete sticking
+      const minVelocity = 0.01
+      const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy)
+      if (currentSpeed > 0 && currentSpeed < minVelocity && !particle.dissolving) {
+        const speedMultiplier = minVelocity / currentSpeed
+        newVx *= speedMultiplier
+        newVy *= speedMultiplier
+      }
 
       return {
         ...particle,
@@ -680,13 +713,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                   boxShadow: '0 4px 15px rgba(55, 65, 81, 0.1)',
                   minWidth: '140px',
                   order: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '8px'
+                  textAlign: 'center'
                 }}
               >
-                <LeftEarIcon />
                 Left Ear<br/>
                 <span style={{ fontSize: '12px', opacity: 0.7 }}>Epley Maneuver</span>
               </button>
@@ -704,13 +733,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                   boxShadow: '0 4px 15px rgba(55, 65, 81, 0.1)',
                   minWidth: '140px',
                   order: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '8px'
+                  textAlign: 'center'
                 }}
               >
-                <RightEarIcon />
                 Right Ear<br/>
                 <span style={{ fontSize: '12px', opacity: 0.7 }}>Epley Maneuver</span>
               </button>

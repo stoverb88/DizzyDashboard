@@ -91,7 +91,7 @@ export function OculomotorExam() {
         <h2 style={{ textAlign: 'center', color: '#333', marginBottom: '20px' }}>{`Test ${testIndex + 1}: ${currentTest.title}`}</h2>
       </div>
       
-      <VideoCarousel key={testIndex} videos={currentTest.videos} />
+      <VideoCarousel key={testIndex} videos={currentTest.videos} autoplayFirst={false} />
 
       <div style={{
         padding: '16px 20px',

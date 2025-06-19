@@ -10,21 +10,38 @@ interface Video {
 
 interface VideoCarouselProps {
   videos: Video[];
+  autoplayFirst?: boolean;
 }
 
-export function VideoCarousel({ videos }: VideoCarouselProps) {
+export function VideoCarousel({ videos, autoplayFirst = true }: VideoCarouselProps) {
   const [videoIndex, setVideoIndex] = useState(0);
+  const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
 
   useEffect(() => {
     setVideoIndex(0);
+    setHasSwipedOnce(false);
   }, [videos]);
 
   const handlers = useSwipeable({
-    onSwipedLeft: () => setVideoIndex((prev) => (prev + 1) % videos.length),
-    onSwipedRight: () => setVideoIndex((prev) => (prev - 1 + videos.length) % videos.length),
+    onSwipedLeft: () => {
+      setVideoIndex((prev) => (prev + 1) % videos.length);
+      setHasSwipedOnce(true);
+    },
+    onSwipedRight: () => {
+      setVideoIndex((prev) => (prev - 1 + videos.length) % videos.length);
+      setHasSwipedOnce(true);
+    },
     preventScrollOnSwipe: true,
     trackMouse: true
   });
+
+  const shouldAutoplay = () => {
+    if (videoIndex === 0 && !hasSwipedOnce) {
+      return autoplayFirst;
+    } else {
+      return true;
+    }
+  };
 
   return (
     <div {...handlers} style={{ position: 'relative', overflow: 'hidden', marginBottom: '16px' }}>
@@ -42,7 +59,7 @@ export function VideoCarousel({ videos }: VideoCarouselProps) {
               >
                 <ReactPlayer
                   url={video.url}
-                  playing={true}
+                  playing={shouldAutoplay()}
                   controls={true}
                   width="100%"
                   height="100%"

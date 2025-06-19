@@ -74,7 +74,7 @@ export function ManeuversTab() {
         </div>
         
         <div style={{ flexGrow: 1, minHeight: '250px' }}>
-          <VideoCarousel key={maneuverIndex} videos={currentManeuver.videos} />
+          <VideoCarousel key={maneuverIndex} videos={currentManeuver.videos} autoplayFirst={false} />
         </div>
 
         <div style={{ padding: '20px', backgroundColor: 'white', borderTop: '1px solid #e2e8f0' }}>
