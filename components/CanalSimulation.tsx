@@ -115,7 +115,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Cupula positioned flush with outer border of ring (moved down)
     const cupulaX = CENTER_X
     const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
-    const cupulaWidth = TUBE_WIDTH * 0.95  // 95% of tube width (increased from 90%)
+    const cupulaWidth = TUBE_WIDTH * 1.4  // Much wider - increased to 140% to fill the green area
     const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
     
     // Rectangular collision for cupula
@@ -168,7 +168,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
 
       // Convert device orientation to gravity vector
-      const gravityStrength = 0.15  // Reduced from 0.3 to simulate fluid resistance
+      const gravityStrength = 0.08  // Much slower - reduced from 0.15 to simulate thick fluid
       
       // Detect if device is roughly horizontal (gamma close to ±90 degrees)
       const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
@@ -476,7 +476,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Draw cupula (vertical barrier at bottom of ring - flush with outer border)
     const cupulaX = CENTER_X
     const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
-    const cupulaWidth = TUBE_WIDTH * 0.95  // 95% of tube width (increased from 90%)
+    const cupulaWidth = TUBE_WIDTH * 1.4  // Much wider - increased to 140% to fill the green area
     const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
     
     ctx.fillStyle = '#8B4513' // Brown color for cupula
