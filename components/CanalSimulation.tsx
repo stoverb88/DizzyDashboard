@@ -115,8 +115,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Cupula positioned flush with outer border of ring (moved down)
     const cupulaX = CENTER_X
     const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
-    const cupulaWidth = TUBE_WIDTH * 1.4  // Much wider - increased to 140% to fill the green area
-    const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
+    const cupulaWidth = TUBE_WIDTH * 0.7  // Reasonable width for collision
+    const cupulaHeight = TUBE_WIDTH * 0.95 // HEIGHT is 95% of tube width (this is what you wanted!)
     
     // Rectangular collision for cupula
     return (
@@ -168,7 +168,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
 
       // Convert device orientation to gravity vector
-      const gravityStrength = 0.08  // Much slower - reduced from 0.15 to simulate thick fluid
+      const gravityStrength = 0.08  // Further reduced from 0.15 to simulate thick fluid resistance
       
       // Detect if device is roughly horizontal (gamma close to ±90 degrees)
       const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
@@ -476,8 +476,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Draw cupula (vertical barrier at bottom of ring - flush with outer border)
     const cupulaX = CENTER_X
     const cupulaY = CENTER_Y + OUTER_RADIUS - (TUBE_WIDTH * 0.3) // Moved down to be flush with outer border
-    const cupulaWidth = TUBE_WIDTH * 1.4  // Much wider - increased to 140% to fill the green area
-    const cupulaHeight = TUBE_WIDTH * 0.6 // Vertical barrier
+    const cupulaWidth = TUBE_WIDTH * 0.7  // Reasonable visual width
+    const cupulaHeight = TUBE_WIDTH * 0.95 // HEIGHT is 95% of tube width - much taller!
     
     ctx.fillStyle = '#8B4513' // Brown color for cupula
     ctx.fillRect(
@@ -487,17 +487,16 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       cupulaHeight
     )
     
-    // Draw cupula wavy hair-like structures on top
+    // Draw shorter, more even hair layer on top of taller cupula
     ctx.strokeStyle = '#654321'
-    ctx.lineWidth = 2
-    for (let i = 0; i < 8; i++) {
-      const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 7) * i
+    ctx.lineWidth = 1.5
+    for (let i = 0; i < 10; i++) {
+      const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 9) * i
       ctx.beginPath()
       ctx.moveTo(hairX, cupulaY - cupulaHeight / 2)
-      // Make wavy hairs
-      const waveHeight = 12 + Math.sin(i * 0.8) * 4
-      const waveX = hairX + Math.sin(i * 1.2) * 3
-      ctx.lineTo(waveX, cupulaY - cupulaHeight / 2 - waveHeight)
+      // Shorter, more even hairs - just 4-6px tall
+      const hairHeight = 4 + Math.sin(i * 0.5) * 2  // Much shorter: 2-6px instead of 8-16px
+      ctx.lineTo(hairX, cupulaY - cupulaHeight / 2 - hairHeight)
       ctx.stroke()
     }
 
