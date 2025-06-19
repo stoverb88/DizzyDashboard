@@ -89,7 +89,7 @@ export function ManeuversTab() {
                 padding: '10px 20px'
               }}
             >
-              🔬 Interactive Canal Simulation
+              🎯 Pocket Epley Trainer
             </button>
           </div>
 

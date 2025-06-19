@@ -18,6 +18,8 @@ interface CanalSimulationProps {
   onClose: () => void
 }
 
+type EarType = 'right' | 'left' | null
+
 export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number>()
@@ -25,36 +27,65 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [orientation, setOrientation] = useState({ beta: 0, gamma: 0 })
   const [permissionGranted, setPermissionGranted] = useState(false)
   const [epleyComplete, setEpleyComplete] = useState(false)
+  const [selectedEar, setSelectedEar] = useState<EarType>(null)
+  const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
   const particlesRef = useRef<Particle[]>([])
 
-  // Canvas dimensions - optimized for mobile (made larger)
-  const CANVAS_WIDTH = 400  // Increased from 320
-  const CANVAS_HEIGHT = 400 // Increased from 320
+  // Canvas dimensions - optimized for mobile
+  const CANVAS_WIDTH = 400
+  const CANVAS_HEIGHT = 400
   const CENTER_X = CANVAS_WIDTH / 2
   const CENTER_Y = CANVAS_HEIGHT / 2
   
   // Ring dimensions
-  const OUTER_RADIUS = 140  // Increased proportionally
-  const INNER_RADIUS = 100  // Increased proportionally
+  const OUTER_RADIUS = 140
+  const INNER_RADIUS = 100
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
 
-  // Vestibule dimensions (large bulbous chamber at 4 o'clock position)
-  const VESTIBULE_ANGLE = Math.PI / 3 // 4 o'clock position (60 degrees)
-  const VESTIBULE_CENTER_X = CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50)  // Adjusted for larger canvas
-  const VESTIBULE_CENTER_Y = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50)  // Adjusted for larger canvas
-  const VESTIBULE_RADIUS = 70 // Increased proportionally
+  // Get vestibule configuration based on ear type
+  const getVestibuleConfig = () => {
+    if (selectedEar === 'left') {
+      // Left ear: vestibule at 8 o'clock position
+      const VESTIBULE_ANGLE = Math.PI * 4/3 // 8 o'clock position (240 degrees)
+      return {
+        angle: VESTIBULE_ANGLE,
+        centerX: CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
+        centerY: CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
+        radius: 70
+      }
+    } else {
+      // Right ear: vestibule at 4 o'clock position (original)
+      const VESTIBULE_ANGLE = Math.PI / 3 // 4 o'clock position (60 degrees)
+      return {
+        angle: VESTIBULE_ANGLE,
+        centerX: CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
+        centerY: CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
+        radius: 70
+      }
+    }
+  }
 
-  // Initialize 4 particles clustered on LEFT side of cupula
+  // Initialize particles based on ear type
   const initializeParticles = useCallback(() => {
+    if (!selectedEar) return
+    
     const newParticles: Particle[] = []
     const cupulaAngle = Math.PI / 2 // Bottom of ring (6 o'clock)
-    const leftSideAngle = cupulaAngle + Math.PI / 6 // LEFT side of cupula (30 degrees right of bottom = 7-8 o'clock)
     const ringCenter = (OUTER_RADIUS + INNER_RADIUS) / 2 // Middle of tube
     
+    let particleAngle
+    if (selectedEar === 'left') {
+      // Left ear: particles spawn on RIGHT side of cupula (4-5 o'clock position)
+      particleAngle = cupulaAngle - Math.PI / 6 // RIGHT side of cupula (30 degrees left of bottom = 4-5 o'clock)
+    } else {
+      // Right ear: particles spawn on LEFT side of cupula (7-8 o'clock position) - original
+      particleAngle = cupulaAngle + Math.PI / 6 // LEFT side of cupula (30 degrees right of bottom = 7-8 o'clock)
+    }
+    
     for (let i = 0; i < 4; i++) {
-      // Cluster all particles tightly on LEFT side of cupula
-      const angle = leftSideAngle + (i - 1.5) * 0.05 // Tight clustering
+      // Cluster all particles tightly on appropriate side of cupula
+      const angle = particleAngle + (i - 1.5) * 0.05 // Tight clustering
       newParticles.push({
         id: i,
         x: CENTER_X + Math.cos(angle) * ringCenter,
@@ -71,10 +102,32 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     setParticles(newParticles)
     particlesRef.current = newParticles
     setEpleyComplete(false)
-  }, [])
+  }, [selectedEar])
+
+  // Try to lock orientation to portrait
+  const lockOrientation = async () => {
+    try {
+      // Type assertion for screen orientation lock (not all browsers support this)
+      if (screen.orientation && (screen.orientation as any).lock) {
+        await (screen.orientation as any).lock('portrait')
+        return true
+      }
+    } catch (error) {
+      console.log('Orientation lock not supported or failed:', error)
+    }
+    return false
+  }
 
   // Request device orientation permission
   const requestOrientationPermission = async () => {
+    // First try to lock orientation
+    const lockSuccess = await lockOrientation()
+    
+    if (!lockSuccess && !orientationLockPrompted) {
+      setOrientationLockPrompted(true)
+      return // Show manual instruction first
+    }
+
     if (typeof DeviceOrientationEvent !== 'undefined' && 'requestPermission' in DeviceOrientationEvent) {
       try {
         const permission = await (DeviceOrientationEvent as any).requestPermission()
@@ -87,6 +140,12 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     } else {
       setPermissionGranted(true)
     }
+  }
+
+  // Handle manual orientation lock acknowledgment
+  const handleOrientationLockAck = () => {
+    setOrientationLockPrompted(false)
+    requestOrientationPermission()
   }
 
   // Handle device orientation
@@ -110,15 +169,13 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return distFromCenter >= INNER_RADIUS && distFromCenter <= OUTER_RADIUS
   }
 
-  // Check collision with cupula (vertical barrier at bottom of ring - flush with outer border)
+  // Check collision with cupula
   const checkCupulaCollision = (x: number, y: number, radius: number): boolean => {
-    // Cupula positioned so its BOTTOM edge is flush with outer border
     const cupulaX = CENTER_X
-    const cupulaWidth = TUBE_WIDTH * 0.7  // Reasonable width for collision
-    const cupulaHeight = TUBE_WIDTH * 0.95 // HEIGHT is 95% of tube width
-    const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2 // Position so bottom edge is flush with outer wall
+    const cupulaWidth = TUBE_WIDTH * 0.7
+    const cupulaHeight = TUBE_WIDTH * 0.95
+    const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
     
-    // Rectangular collision for cupula
     return (
       x - radius < cupulaX + cupulaWidth / 2 &&
       x + radius > cupulaX - cupulaWidth / 2 &&
@@ -127,35 +184,37 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     )
   }
 
-  // Check if point is inside the vestibule (expanded area including connection region)
+  // Check if point is inside the vestibule
   const isInsideVestibule = (x: number, y: number): boolean => {
-    // Main vestibule chamber
-    const distFromVestibuleCenter = Math.sqrt((x - VESTIBULE_CENTER_X) ** 2 + (y - VESTIBULE_CENTER_Y) ** 2)
-    if (distFromVestibuleCenter <= VESTIBULE_RADIUS) return true
+    const vestibuleConfig = getVestibuleConfig()
     
-    // Extended vestibule area (the green shaded region) - connection bridge area
-    const connectionX = CENTER_X + Math.cos(VESTIBULE_ANGLE) * OUTER_RADIUS
-    const connectionY = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * OUTER_RADIUS
+    // Main vestibule chamber
+    const distFromVestibuleCenter = Math.sqrt((x - vestibuleConfig.centerX) ** 2 + (y - vestibuleConfig.centerY) ** 2)
+    if (distFromVestibuleCenter <= vestibuleConfig.radius) return true
+    
+    // Extended vestibule area - connection bridge area
+    const connectionX = CENTER_X + Math.cos(vestibuleConfig.angle) * OUTER_RADIUS
+    const connectionY = CENTER_Y + Math.sin(vestibuleConfig.angle) * OUTER_RADIUS
     const connectionWidth = 50
     const connectionHeight = 40
     
     // Check if point is in the connection/bridge area (rotated rectangle)
     const dx = x - connectionX
     const dy = y - connectionY
-    const rotatedX = dx * Math.cos(-VESTIBULE_ANGLE) - dy * Math.sin(-VESTIBULE_ANGLE)
-    const rotatedY = dx * Math.sin(-VESTIBULE_ANGLE) + dy * Math.cos(-VESTIBULE_ANGLE)
+    const rotatedX = dx * Math.cos(-vestibuleConfig.angle) - dy * Math.sin(-vestibuleConfig.angle)
+    const rotatedY = dx * Math.sin(-vestibuleConfig.angle) + dy * Math.cos(-vestibuleConfig.angle)
     
     return Math.abs(rotatedX) <= connectionWidth / 2 && Math.abs(rotatedY) <= connectionHeight / 2
   }
 
-  // Check if point is in valid canal space (ring or vestibule)
+  // Check if point is in valid canal space
   const isInValidSpace = (x: number, y: number): boolean => {
     return isInsideRing(x, y) || isInsideVestibule(x, y)
   }
 
   // Physics update
   const updatePhysics = useCallback(() => {
-    if (!canvasRef.current) return
+    if (!canvasRef.current || !selectedEar) return
 
     const newParticles = particlesRef.current.map((particle, index) => {
       // If particle is dissolving, just shrink it
@@ -168,20 +227,17 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
 
       // Convert device orientation to gravity vector
-      const gravityStrength = 0.08  // Further reduced from 0.15 to simulate thick fluid resistance
+      const gravityStrength = 0.08  // Slow fluid resistance
       
-      // Detect if device is roughly horizontal (gamma close to ±90 degrees)
+      // Detect if device is roughly horizontal
       const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
       
       let gravityX, gravityY
       
       if (isHorizontal) {
-        // When horizontal, use gamma for left-right gravity, but reduce beta interference
         gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
-        // Greatly reduce beta influence when horizontal to prevent upward acceleration
         gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength * 0.1
       } else {
-        // When vertical (normal portrait/landscape), use both gamma and beta normally
         gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
         gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength
       }
@@ -201,23 +257,20 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       // Check if particle is in vestibule
       const nowInVestibule = isInsideVestibule(newX, newY)
       
-      // If particle just entered vestibule, mark it
       if (nowInVestibule && !particle.inAmpulla) {
         particle.inAmpulla = true
       }
 
-      // Boundary checks for ring
+      // Boundary checks and physics (same logic as before)
       const distFromCenter = Math.sqrt((newX - CENTER_X) ** 2 + (newY - CENTER_Y) ** 2)
+      const vestibuleConfig = getVestibuleConfig()
       
       if (isInsideRing(newX, newY)) {
-        // Particle is in ring - check ring boundaries
         if (distFromCenter > OUTER_RADIUS - particle.radius) {
-          // Check if particle is trying to enter vestibule connection area
           const angleToParticle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
-          const vestibuleConnectionStart = VESTIBULE_ANGLE - 0.4
-          const vestibuleConnectionEnd = VESTIBULE_ANGLE + 0.4
+          const vestibuleConnectionStart = vestibuleConfig.angle - 0.4
+          const vestibuleConnectionEnd = vestibuleConfig.angle + 0.4
           
-          // Normalize angles to handle wraparound
           let normalizedAngle = angleToParticle
           if (normalizedAngle < 0) normalizedAngle += Math.PI * 2
           
@@ -227,31 +280,26 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           let normalizedEnd = vestibuleConnectionEnd
           if (normalizedEnd < 0) normalizedEnd += Math.PI * 2
           
-          // Check if particle is in vestibule connection area - if so, don't apply wall collision
           const inConnectionArea = (normalizedAngle >= normalizedStart && normalizedAngle <= normalizedEnd)
           
           if (!inConnectionArea) {
-            // Hit outer wall (but not in connection area)
             const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
             newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
             newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
             
-            // Bounce off wall
             const normalX = Math.cos(angle)
             const normalY = Math.sin(angle)
             const dotProduct = newVx * normalX + newVy * normalY
             newVx = newVx - 2 * dotProduct * normalX
             newVy = newVy - 2 * dotProduct * normalY
-            newVx *= 0.7 // Energy loss
+            newVx *= 0.7
             newVy *= 0.7
           }
         } else if (distFromCenter < INNER_RADIUS + particle.radius) {
-          // Hit inner wall
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
           newX = CENTER_X + Math.cos(angle) * (INNER_RADIUS + particle.radius)
           newY = CENTER_Y + Math.sin(angle) * (INNER_RADIUS + particle.radius)
           
-          // Bounce off wall
           const normalX = -Math.cos(angle)
           const normalY = -Math.sin(angle)
           const dotProduct = newVx * normalX + newVy * normalY
@@ -261,50 +309,41 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           newVy *= 0.7
         }
       } else if (isInsideVestibule(newX, newY)) {
-        // Particle is in vestibule - check vestibule boundaries (only for main chamber, not connection area)
-        const distFromVestibuleCenter = Math.sqrt((newX - VESTIBULE_CENTER_X) ** 2 + (newY - VESTIBULE_CENTER_Y) ** 2)
+        const distFromVestibuleCenter = Math.sqrt((newX - vestibuleConfig.centerX) ** 2 + (newY - vestibuleConfig.centerY) ** 2)
         
-        // Only apply vestibule wall collision if particle is in the main circular chamber
-        if (distFromVestibuleCenter <= VESTIBULE_RADIUS && distFromVestibuleCenter > VESTIBULE_RADIUS - particle.radius) {
-          // Hit vestibule wall
-          const angle = Math.atan2(newY - VESTIBULE_CENTER_Y, newX - VESTIBULE_CENTER_X)
-          newX = VESTIBULE_CENTER_X + Math.cos(angle) * (VESTIBULE_RADIUS - particle.radius)
-          newY = VESTIBULE_CENTER_Y + Math.sin(angle) * (VESTIBULE_RADIUS - particle.radius)
+        if (distFromVestibuleCenter <= vestibuleConfig.radius && distFromVestibuleCenter > vestibuleConfig.radius - particle.radius) {
+          const angle = Math.atan2(newY - vestibuleConfig.centerY, newX - vestibuleConfig.centerX)
+          newX = vestibuleConfig.centerX + Math.cos(angle) * (vestibuleConfig.radius - particle.radius)
+          newY = vestibuleConfig.centerY + Math.sin(angle) * (vestibuleConfig.radius - particle.radius)
           
-          // Bounce off wall with more damping in vestibule
           const normalX = Math.cos(angle)
           const normalY = Math.sin(angle)
           const dotProduct = newVx * normalX + newVy * normalY
           newVx = newVx - 2 * dotProduct * normalX
           newVy = newVy - 2 * dotProduct * normalY
-          newVx *= 0.5 // More energy loss in vestibule
+          newVx *= 0.5
           newVy *= 0.5
         }
         
-        // Start dissolving if particle has low velocity in vestibule
         if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
           particle.dissolving = true
         }
       } else if (!isInValidSpace(newX, newY)) {
-        // Particle is outside valid space - push back to nearest valid area
         if (isInsideRing(particle.x, particle.y)) {
-          // Was in ring, push back to ring
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
           newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
           newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
         } else {
-          // Push to vestibule
-          const angle = Math.atan2(newY - VESTIBULE_CENTER_Y, newX - VESTIBULE_CENTER_X)
-          newX = VESTIBULE_CENTER_X + Math.cos(angle) * (VESTIBULE_RADIUS - particle.radius)
-          newY = VESTIBULE_CENTER_Y + Math.sin(angle) * (VESTIBULE_RADIUS - particle.radius)
+          const angle = Math.atan2(newY - vestibuleConfig.centerY, newX - vestibuleConfig.centerX)
+          newX = vestibuleConfig.centerX + Math.cos(angle) * (vestibuleConfig.radius - particle.radius)
+          newY = vestibuleConfig.centerY + Math.sin(angle) * (vestibuleConfig.radius - particle.radius)
         }
         newVx *= 0.5
         newVy *= 0.5
       }
 
-      // Check cupula collision (but allow passage to vestibule)
+      // Check cupula collision
       if (checkCupulaCollision(newX, newY, particle.radius) && !nowInVestibule) {
-        // Push particle away from cupula if not entering vestibule
         const cupulaX = CENTER_X
         const cupulaHeight = TUBE_WIDTH * 0.95
         const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
@@ -313,12 +352,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         newX = cupulaX + Math.cos(pushAngle) * pushDistance
         newY = cupulaY + Math.sin(pushAngle) * pushDistance
         
-        // Reduce velocity
         newVx *= 0.5
         newVy *= 0.5
       }
 
-      // Particle-to-particle collision
+      // Particle-to-particle collision (same logic as before)
       particlesRef.current.forEach((otherParticle, otherIndex) => {
         if (index !== otherIndex && !particle.dissolving && !otherParticle.dissolving) {
           const dx = newX - otherParticle.x
@@ -327,7 +365,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           const minDistance = particle.radius + otherParticle.radius
           
           if (distance < minDistance && distance > 0) {
-            // Separate particles
             const overlap = minDistance - distance
             const separationX = (dx / distance) * (overlap * 0.5)
             const separationY = (dy / distance) * (overlap * 0.5)
@@ -335,14 +372,13 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             newX += separationX
             newY += separationY
             
-            // Elastic collision
             const normalX = dx / distance
             const normalY = dy / distance
             const relativeVelocityX = newVx - otherParticle.vx
             const relativeVelocityY = newVy - otherParticle.vy
             const velocityAlongNormal = relativeVelocityX * normalX + relativeVelocityY * normalY
             
-            if (velocityAlongNormal > 0) return // Particles separating
+            if (velocityAlongNormal > 0) return
             
             const restitution = 0.8
             const impulse = -(1 + restitution) * velocityAlongNormal / 2
@@ -368,12 +404,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       setEpleyComplete(true)
     }
 
-    // Remove fully dissolved particles
-    const activeParticles = newParticles.filter(p => p.radius > 0)
-
     particlesRef.current = newParticles
     setParticles(newParticles)
-  }, [orientation, epleyComplete])
+  }, [orientation, epleyComplete, selectedEar])
 
   // Animation loop
   useEffect(() => {
@@ -383,7 +416,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       animationRef.current = requestAnimationFrame(animate)
     }
 
-    if (permissionGranted) {
+    if (permissionGranted && selectedEar) {
       animate()
     }
 
@@ -392,7 +425,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [updatePhysics, permissionGranted])
+  }, [updatePhysics, permissionGranted, selectedEar])
 
   // Handle Epley Complete click
   const handleEpleyCompleteClick = () => {
@@ -402,16 +435,18 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   // Draw function
   const draw = () => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas || !selectedEar) return
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    const vestibuleConfig = getVestibuleConfig()
 
     // Clear canvas
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
     // Draw outer ring (light blue fluid)
-    ctx.fillStyle = '#87CEEB' // Light blue
+    ctx.fillStyle = '#87CEEB'
     ctx.beginPath()
     ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, Math.PI * 2)
     ctx.fill()
@@ -422,65 +457,60 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw vestibule (large bulbous chamber at 4 o'clock position)
-    ctx.fillStyle = '#87CEEB' // Same light blue
+    // Draw vestibule
+    ctx.fillStyle = '#87CEEB'
     ctx.beginPath()
-    ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, 0, Math.PI * 2)
+    ctx.arc(vestibuleConfig.centerX, vestibuleConfig.centerY, vestibuleConfig.radius, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw connection between ring and vestibule (moved to 4 o'clock)
-    const connectionX = CENTER_X + Math.cos(VESTIBULE_ANGLE) * OUTER_RADIUS
-    const connectionY = CENTER_Y + Math.sin(VESTIBULE_ANGLE) * OUTER_RADIUS
+    // Draw connection between ring and vestibule
+    const connectionX = CENTER_X + Math.cos(vestibuleConfig.angle) * OUTER_RADIUS
+    const connectionY = CENTER_Y + Math.sin(vestibuleConfig.angle) * OUTER_RADIUS
     const connectionWidth = 40
     const connectionHeight = 30
     
     ctx.fillStyle = '#87CEEB'
     ctx.save()
     ctx.translate(connectionX, connectionY)
-    ctx.rotate(VESTIBULE_ANGLE)
+    ctx.rotate(vestibuleConfig.angle)
     ctx.fillRect(-5, -connectionHeight/2, connectionWidth, connectionHeight)
     ctx.restore()
 
-    // Draw ring borders (but skip the connection area to avoid collision)
+    // Draw ring borders
     ctx.strokeStyle = '#4682B4'
     ctx.lineWidth = 2
     
     // Draw outer ring border in segments, skipping vestibule connection area
     ctx.beginPath()
-    // First segment: from 0 to connection start
-    const connectionStartAngle = VESTIBULE_ANGLE - 0.3
-    const connectionEndAngle = VESTIBULE_ANGLE + 0.3
+    const connectionStartAngle = vestibuleConfig.angle - 0.3
+    const connectionEndAngle = vestibuleConfig.angle + 0.3
     ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, 0, connectionStartAngle)
     ctx.stroke()
     
-    // Second segment: from connection end to 2π
     ctx.beginPath()
     ctx.arc(CENTER_X, CENTER_Y, OUTER_RADIUS, connectionEndAngle, Math.PI * 2)
     ctx.stroke()
     
-    // Inner ring border (full circle - no connection issues)
+    // Inner ring border
     ctx.beginPath()
     ctx.arc(CENTER_X, CENTER_Y, INNER_RADIUS, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw vestibule border (but skip the connection area)
+    // Draw vestibule border
     ctx.beginPath()
-    // Calculate the angle range that connects to the ring
-    const ringConnectionAngle = Math.atan2(connectionY - VESTIBULE_CENTER_Y, connectionX - VESTIBULE_CENTER_X)
+    const ringConnectionAngle = Math.atan2(connectionY - vestibuleConfig.centerY, connectionX - vestibuleConfig.centerX)
     const skipStartAngle = ringConnectionAngle - 0.4
     const skipEndAngle = ringConnectionAngle + 0.4
-    
-    // Draw vestibule border in two segments, skipping connection area
-    ctx.arc(VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y, VESTIBULE_RADIUS, skipEndAngle, skipStartAngle + Math.PI * 2)
+    ctx.arc(vestibuleConfig.centerX, vestibuleConfig.centerY, vestibuleConfig.radius, skipEndAngle, skipStartAngle + Math.PI * 2)
     ctx.stroke()
 
-    // Draw cupula (vertical barrier at bottom of ring - flush with outer border)
+    // Draw cupula
     const cupulaX = CENTER_X
-    const cupulaWidth = TUBE_WIDTH * 0.7  // Reasonable visual width
-    const cupulaHeight = TUBE_WIDTH * 0.95 // HEIGHT is 95% of tube width - much taller!
-    const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2 // Position so bottom edge is flush with outer wall
+    const cupulaWidth = TUBE_WIDTH * 0.7
+    const cupulaHeight = TUBE_WIDTH * 0.95
+    const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
     
-    ctx.fillStyle = '#8B4513' // Brown color for cupula
+    ctx.fillStyle = '#8B4513'
     ctx.fillRect(
       cupulaX - cupulaWidth / 2,
       cupulaY - cupulaHeight / 2,
@@ -488,21 +518,20 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       cupulaHeight
     )
     
-    // Draw shorter, more even hair layer on top of taller cupula
+    // Draw hair structures
     ctx.strokeStyle = '#654321'
     ctx.lineWidth = 1.5
     for (let i = 0; i < 10; i++) {
       const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 9) * i
       ctx.beginPath()
       ctx.moveTo(hairX, cupulaY - cupulaHeight / 2)
-      // Shorter, more even hairs - just 4-6px tall
-      const hairHeight = 4 + Math.sin(i * 0.5) * 2  // Much shorter: 2-6px instead of 8-16px
+      const hairHeight = 4 + Math.sin(i * 0.5) * 2
       ctx.lineTo(hairX, cupulaY - cupulaHeight / 2 - hairHeight)
       ctx.stroke()
     }
 
-    // Draw particles (purple)
-    ctx.fillStyle = '#8A2BE2' // Purple
+    // Draw particles
+    ctx.fillStyle = '#8A2BE2'
     particlesRef.current.forEach(particle => {
       if (particle.radius > 0) {
         ctx.beginPath()
@@ -513,13 +542,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
     // Draw "Epley Complete" success indicator
     if (epleyComplete) {
-      // Green circle with checkmark
       ctx.fillStyle = '#10B981'
       ctx.beginPath()
       ctx.arc(CENTER_X, CENTER_Y, 25, 0, Math.PI * 2)
       ctx.fill()
       
-      // White checkmark
       ctx.strokeStyle = 'white'
       ctx.lineWidth = 3
       ctx.beginPath()
@@ -528,7 +555,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       ctx.lineTo(CENTER_X + 10, CENTER_Y - 7)
       ctx.stroke()
       
-      // Add text below
       ctx.fillStyle = '#10B981'
       ctx.font = '12px Arial'
       ctx.textAlign = 'center'
@@ -540,9 +566,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.fillStyle = '#333'
     ctx.font = '14px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('Semicircular Canal', CENTER_X, CENTER_Y - OUTER_RADIUS - 20)
+    ctx.fillText(`${selectedEar === 'left' ? 'Left' : 'Right'} Semicircular Canal`, CENTER_X, CENTER_Y - OUTER_RADIUS - 20)
     ctx.fillText('Cupula', cupulaX, cupulaY + cupulaHeight / 2 + 20)
-    ctx.fillText('Vestibule', VESTIBULE_CENTER_X, VESTIBULE_CENTER_Y + VESTIBULE_RADIUS + 15)
+    ctx.fillText('Vestibule', vestibuleConfig.centerX, vestibuleConfig.centerY + vestibuleConfig.radius + 15)
   }
 
   // Handle canvas click for Epley Complete reset
@@ -556,17 +582,18 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     const clickX = event.clientX - rect.left
     const clickY = event.clientY - rect.top
     
-    // Check if click is on the green circle
     const distFromCenter = Math.sqrt((clickX - CENTER_X) ** 2 + (clickY - CENTER_Y) ** 2)
     if (distFromCenter <= 25) {
       handleEpleyCompleteClick()
     }
   }
 
-  // Initialize particles on mount
+  // Initialize particles when ear is selected
   useEffect(() => {
-    initializeParticles()
-  }, [initializeParticles])
+    if (selectedEar) {
+      initializeParticles()
+    }
+  }, [selectedEar, initializeParticles])
 
   return (
     <div style={{
@@ -596,7 +623,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         backgroundColor: 'white'
       }}>
         <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '600' }}>
-          Canal Ring Simulation
+          🎯 Pocket Epley Trainer
         </h2>
         <button
           onClick={onClose}
@@ -618,13 +645,102 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '20px'
+        gap: '20px',
+        width: '100%',
+        maxWidth: '500px',
+        padding: '0 20px'
       }}>
-        {!permissionGranted ? (
-          <div style={{ textAlign: 'center', padding: '40px' }}>
-            <h3>Enable Device Orientation</h3>
-            <p style={{ marginBottom: '20px', color: '#666' }}>
-              Tilt your device to move the particles through the canal ring.
+        {/* Ear Selection Screen */}
+        {!selectedEar && (
+          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <h3 style={{ marginBottom: '10px' }}>Select Ear for Training</h3>
+            <p style={{ marginBottom: '30px', color: '#666', fontSize: '14px' }}>
+              Choose which ear you want to practice the Epley maneuver on
+            </p>
+            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setSelectedEar('right')}
+                style={{
+                  padding: '20px 30px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  minWidth: '140px'
+                }}
+              >
+                👂 Right Ear<br/>
+                <span style={{ fontSize: '12px', opacity: 0.9 }}>Epley Maneuver</span>
+              </button>
+              <button
+                onClick={() => setSelectedEar('left')}
+                style={{
+                  padding: '20px 30px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+                  minWidth: '140px'
+                }}
+              >
+                👂 Left Ear<br/>
+                <span style={{ fontSize: '12px', opacity: 0.9 }}>Epley Maneuver</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Orientation Lock Prompt */}
+        {selectedEar && orientationLockPrompted && (
+          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <h3>📱 Lock Screen Rotation</h3>
+            <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
+              For the best training experience, please lock your device to portrait mode:
+            </p>
+            <div style={{ 
+              backgroundColor: '#f8f9fa', 
+              padding: '20px', 
+              borderRadius: '8px', 
+              marginBottom: '20px',
+              textAlign: 'left',
+              fontSize: '14px'
+            }}>
+              <strong>iOS:</strong> Swipe down from top-right → Tap rotation lock icon<br/>
+              <strong>Android:</strong> Swipe down from top → Tap auto-rotate to disable
+            </div>
+            <button
+              onClick={handleOrientationLockAck}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: '#667eea',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+              }}
+            >
+              Continue to Training
+            </button>
+          </div>
+        )}
+
+        {/* Orientation Permission Screen */}
+        {selectedEar && !orientationLockPrompted && !permissionGranted && (
+          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <h3>📲 Enable Device Orientation</h3>
+            <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
+              Tilt your device to move the particles through the {selectedEar} ear canal.
             </p>
             <button
               onClick={requestOrientationPermission}
@@ -643,7 +759,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
               Enable Orientation
             </button>
           </div>
-        ) : (
+        )}
+
+        {/* Simulation Canvas */}
+        {selectedEar && permissionGranted && (
           <>
             <canvas
               ref={canvasRef}
@@ -658,28 +777,50 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
               }}
             />
             
-            <div style={{ textAlign: 'center', maxWidth: '300px' }}>
+            <div style={{ textAlign: 'center', maxWidth: '350px' }}>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+                <strong>{selectedEar === 'left' ? 'Left' : 'Right'} Ear Epley Training:</strong><br/>
                 Tilt your device to guide particles into the vestibule. 
-                Complete the Epley maneuver by getting all particles to dissolve in the vestibule chamber.
+                Complete the maneuver by getting all particles to dissolve in the vestibule chamber.
               </p>
               
-              <button
-                onClick={initializeParticles}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  marginTop: '10px'
-                }}
-              >
-                Reset Particles
-              </button>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={initializeParticles}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Reset Particles
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEar(null)
+                    setPermissionGranted(false)
+                    setOrientationLockPrompted(false)
+                    setEpleyComplete(false)
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: 'white',
+                    color: '#666',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Switch Ear
+                </button>
+              </div>
             </div>
           </>
         )}
