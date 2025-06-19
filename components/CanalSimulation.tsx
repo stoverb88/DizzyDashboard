@@ -1,6 +1,8 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { LeftEarIcon } from './icons/LeftEarIcon'
+import { RightEarIcon } from './icons/RightEarIcon'
 
 interface Particle {
   id: number
@@ -29,6 +31,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [epleyComplete, setEpleyComplete] = useState(false)
   const [selectedEar, setSelectedEar] = useState<EarType>(null)
   const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
+  const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
 
   // Canvas dimensions - optimized for mobile
@@ -46,7 +49,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   // Get vestibule configuration based on ear type
   const getVestibuleConfig = () => {
     if (selectedEar === 'left') {
-      // Left ear: vestibule at 8 o'clock position
+      // Left ear: vestibule at 8 o'clock position (exact vertical mirror of right ear's 4 o'clock)
       const VESTIBULE_ANGLE = Math.PI * 4/3 // 8 o'clock position (240 degrees)
       return {
         angle: VESTIBULE_ANGLE,
@@ -104,7 +107,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     setEpleyComplete(false)
   }, [selectedEar])
 
-  // Try to lock orientation to portrait
+  // Try to lock orientation
   const lockOrientation = async () => {
     try {
       // Type assertion for screen orientation lock (not all browsers support this)
@@ -120,12 +123,15 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
   // Request device orientation permission
   const requestOrientationPermission = async () => {
-    // First try to lock orientation
-    const lockSuccess = await lockOrientation()
-    
-    if (!lockSuccess && !orientationLockPrompted) {
-      setOrientationLockPrompted(true)
-      return // Show manual instruction first
+    // Only show orientation setup if not already completed
+    if (!orientationSetupComplete) {
+      // First try to lock orientation
+      const lockSuccess = await lockOrientation()
+      
+      if (!lockSuccess && !orientationLockPrompted) {
+        setOrientationLockPrompted(true)
+        return // Show manual instruction first
+      }
     }
 
     if (typeof DeviceOrientationEvent !== 'undefined' && 'requestPermission' in DeviceOrientationEvent) {
@@ -133,12 +139,14 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         const permission = await (DeviceOrientationEvent as any).requestPermission()
         if (permission === 'granted') {
           setPermissionGranted(true)
+          setOrientationSetupComplete(true)
         }
       } catch (error) {
         console.error('Error requesting orientation permission:', error)
       }
     } else {
       setPermissionGranted(true)
+      setOrientationSetupComplete(true)
     }
   }
 
@@ -659,47 +667,59 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             </p>
             <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
-                onClick={() => setSelectedEar('right')}
-                style={{
-                  padding: '20px 30px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  backgroundColor: '#667eea',
-                  color: 'white',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                  minWidth: '140px'
-                }}
-              >
-                👂 Right Ear<br/>
-                <span style={{ fontSize: '12px', opacity: 0.9 }}>Epley Maneuver</span>
-              </button>
-              <button
                 onClick={() => setSelectedEar('left')}
                 style={{
                   padding: '20px 30px',
                   borderRadius: '12px',
-                  border: 'none',
-                  backgroundColor: '#10b981',
-                  color: 'white',
+                  border: '2px solid #374151',
+                  backgroundColor: 'white',
+                  color: '#374151',
                   fontSize: '16px',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
-                  minWidth: '140px'
+                  boxShadow: '0 4px 15px rgba(55, 65, 81, 0.1)',
+                  minWidth: '140px',
+                  order: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
               >
-                👂 Left Ear<br/>
-                <span style={{ fontSize: '12px', opacity: 0.9 }}>Epley Maneuver</span>
+                <LeftEarIcon />
+                Left Ear<br/>
+                <span style={{ fontSize: '12px', opacity: 0.7 }}>Epley Maneuver</span>
+              </button>
+              <button
+                onClick={() => setSelectedEar('right')}
+                style={{
+                  padding: '20px 30px',
+                  borderRadius: '12px',
+                  border: '2px solid #374151',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(55, 65, 81, 0.1)',
+                  minWidth: '140px',
+                  order: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <RightEarIcon />
+                Right Ear<br/>
+                <span style={{ fontSize: '12px', opacity: 0.7 }}>Epley Maneuver</span>
               </button>
             </div>
           </div>
         )}
 
-        {/* Orientation Lock Prompt */}
-        {selectedEar && orientationLockPrompted && (
+        {/* Orientation Lock Prompt - Only show if orientation setup not complete */}
+        {selectedEar && orientationLockPrompted && !orientationSetupComplete && (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
             <h3>📱 Lock Screen Rotation</h3>
             <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
@@ -735,8 +755,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           </div>
         )}
 
-        {/* Orientation Permission Screen */}
-        {selectedEar && !orientationLockPrompted && !permissionGranted && (
+        {/* Orientation Permission Screen - Only show if orientation setup not complete */}
+        {selectedEar && !orientationLockPrompted && !permissionGranted && !orientationSetupComplete && (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
             <h3>📲 Enable Device Orientation</h3>
             <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
@@ -761,8 +781,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           </div>
         )}
 
-        {/* Simulation Canvas */}
-        {selectedEar && permissionGranted && (
+        {/* Simulation Canvas - Show if ear selected and (permission granted OR orientation setup complete) */}
+        {selectedEar && (permissionGranted || orientationSetupComplete) && (
           <>
             <canvas
               ref={canvasRef}
@@ -803,9 +823,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                 <button
                   onClick={() => {
                     setSelectedEar(null)
-                    setPermissionGranted(false)
-                    setOrientationLockPrompted(false)
                     setEpleyComplete(false)
+                    // Don't reset orientation setup - keep it for switching ears
                   }}
                   style={{
                     padding: '10px 20px',
