@@ -32,9 +32,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
   
-  // Avatar head state
-  const [headRotation, setHeadRotation] = useState(0)
-  const headRotationRef = useRef(0)
+  // Avatar head state - now 3D with pitch and yaw
+  const [headRotation, setHeadRotation] = useState({ pitch: 0, yaw: 0 })
+  const headRotationRef = useRef({ pitch: 0, yaw: 0 })
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 400
@@ -48,10 +48,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
   
-  // Avatar head dimensions and position
-  const HEAD_SIZE = 60
+  // Avatar head dimensions and position - now in center of ring
+  const HEAD_SIZE = 50 // Slightly smaller to fit in center
   const HEAD_X = CENTER_X
-  const HEAD_Y = CENTER_Y // Center of the hollow ring instead of bottom of canvas
+  const HEAD_Y = CENTER_Y
 
   // Get vestibule configuration based on ear type
   const getVestibuleConfig = () => {
@@ -251,90 +251,147 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     }
   }
 
-  // Update head rotation to look at particles
+  // Update head rotation to look at particles with 3D constraints
   const updateHeadRotation = () => {
     const centroid = calculateParticleCentroid()
     
     // Calculate angle from head to particle centroid
     const dx = centroid.x - HEAD_X
     const dy = centroid.y - HEAD_Y
-    const targetAngle = Math.atan2(dy, dx)
     
-    // Smooth rotation interpolation
-    const currentAngle = headRotationRef.current
-    let angleDiff = targetAngle - currentAngle
+    // Convert to realistic head rotation angles
+    // Yaw: left/right rotation (based on horizontal displacement)
+    const targetYaw = Math.atan2(dx, 100) // Normalize to reasonable range
     
-    // Handle angle wrapping (-π to π)
-    if (angleDiff > Math.PI) angleDiff -= Math.PI * 2
-    if (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+    // Pitch: up/down rotation (based on vertical displacement)
+    // Negative dy means particles are above head (look up)
+    const targetPitch = Math.atan2(-dy, 100) // Normalize and invert for intuitive direction
     
-    // Smooth interpolation (adjust 0.1 for faster/slower rotation)
-    const newAngle = currentAngle + angleDiff * 0.1
+    // Apply realistic constraints (human neck limitations)
+    const maxYaw = Math.PI / 3 // ±60 degrees
+    const maxPitch = Math.PI / 4 // ±45 degrees
     
-    headRotationRef.current = newAngle
-    setHeadRotation(newAngle)
+    const constrainedYaw = Math.max(-maxYaw, Math.min(maxYaw, targetYaw))
+    const constrainedPitch = Math.max(-maxPitch, Math.min(maxPitch, targetPitch))
+    
+    // Smooth interpolation
+    const currentRotation = headRotationRef.current
+    const lerpFactor = 0.08 // Slightly slower for more realistic movement
+    
+    const newYaw = currentRotation.yaw + (constrainedYaw - currentRotation.yaw) * lerpFactor
+    const newPitch = currentRotation.pitch + (constrainedPitch - currentRotation.pitch) * lerpFactor
+    
+    headRotationRef.current = { pitch: newPitch, yaw: newYaw }
+    setHeadRotation({ pitch: newPitch, yaw: newYaw })
   }
 
-  // Draw avatar head looking at particles
+  // Draw 3D avatar head with realistic rotation
   const drawAvatarHead = (ctx: CanvasRenderingContext2D) => {
     ctx.save()
     ctx.translate(HEAD_X, HEAD_Y)
-    ctx.rotate(headRotation)
     
-    // Head outline (circle)
+    // Calculate 3D perspective effects
+    const yawFactor = Math.cos(headRotation.yaw) // Side-to-side squash
+    const pitchFactor = Math.cos(headRotation.pitch) // Up-down perspective
+    
+    // Head outline (ellipse for 3D effect)
+    const headWidth = HEAD_SIZE * yawFactor * 0.8
+    const headHeight = HEAD_SIZE * pitchFactor * 0.9
+    
     ctx.fillStyle = '#FDBCB4' // Skin tone
     ctx.strokeStyle = '#8B4513' // Brown outline
     ctx.lineWidth = 2
+    
+    // Draw head as ellipse
     ctx.beginPath()
-    ctx.arc(0, 0, HEAD_SIZE / 2, 0, Math.PI * 2)
+    ctx.ellipse(0, 0, Math.abs(headWidth) / 2, Math.abs(headHeight) / 2, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
     
-    // Eyes
-    ctx.fillStyle = '#FFFFFF'
-    // Left eye
-    ctx.beginPath()
-    ctx.arc(-12, -8, 6, 0, Math.PI * 2)
-    ctx.fill()
-    // Right eye
-    ctx.beginPath()
-    ctx.arc(12, -8, 6, 0, Math.PI * 2)
-    ctx.fill()
+    // Calculate eye positions with 3D perspective
+    const eyeSpacing = 10 * yawFactor
+    const eyeY = -6 * pitchFactor
+    const eyeSize = 4 * Math.min(Math.abs(yawFactor), Math.abs(pitchFactor))
     
-    // Eye pupils (looking direction)
-    ctx.fillStyle = '#000000'
-    // Left pupil
-    ctx.beginPath()
-    ctx.arc(-12 + 2, -8, 2, 0, Math.PI * 2) // Offset slightly toward look direction
-    ctx.fill()
-    // Right pupil
-    ctx.beginPath()
-    ctx.arc(12 + 2, -8, 2, 0, Math.PI * 2) // Offset slightly toward look direction
-    ctx.fill()
+    if (eyeSize > 1) { // Only draw eyes if they're visible enough
+      // Eyes
+      ctx.fillStyle = '#FFFFFF'
+      
+      // Left eye (viewer's perspective)
+      ctx.beginPath()
+      ctx.ellipse(-eyeSpacing, eyeY, eyeSize, eyeSize * 0.8, 0, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // Right eye
+      ctx.beginPath()
+      ctx.ellipse(eyeSpacing, eyeY, eyeSize, eyeSize * 0.8, 0, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // Eye pupils
+      ctx.fillStyle = '#000000'
+      const pupilSize = eyeSize * 0.4
+      const pupilOffsetX = headRotation.yaw * 2 // Eyes look in direction of head turn
+      const pupilOffsetY = headRotation.pitch * 2
+      
+      // Left pupil
+      ctx.beginPath()
+      ctx.arc(-eyeSpacing + pupilOffsetX, eyeY + pupilOffsetY, pupilSize, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // Right pupil
+      ctx.beginPath()
+      ctx.arc(eyeSpacing + pupilOffsetX, eyeY + pupilOffsetY, pupilSize, 0, Math.PI * 2)
+      ctx.fill()
+    }
     
-    // Nose (small triangle pointing in look direction)
-    ctx.fillStyle = '#E6A4A4'
-    ctx.beginPath()
-    ctx.moveTo(8, -2)
-    ctx.lineTo(15, 2)
-    ctx.lineTo(8, 6)
-    ctx.closePath()
-    ctx.fill()
+    // Nose (3D perspective)
+    const noseVisible = yawFactor > 0.3 // Only show nose when not too profile
+    if (noseVisible) {
+      ctx.fillStyle = '#E6A4A4'
+      const noseX = headRotation.yaw * 8
+      const noseY = pitchFactor * 2
+      const noseSize = 3 * yawFactor
+      
+      ctx.beginPath()
+      ctx.ellipse(noseX, noseY, noseSize, noseSize * 1.5, headRotation.pitch * 0.5, 0, Math.PI * 2)
+      ctx.fill()
+    }
     
-    // Mouth (small arc)
+    // Mouth
     ctx.strokeStyle = '#8B4513'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.arc(0, 8, 8, 0, Math.PI)
-    ctx.stroke()
+    ctx.lineWidth = 1.5
+    const mouthY = 6 * pitchFactor
+    const mouthWidth = 8 * yawFactor
+    
+    if (Math.abs(mouthWidth) > 2) {
+      ctx.beginPath()
+      ctx.ellipse(0, mouthY, Math.abs(mouthWidth), 3, 0, 0, Math.PI)
+      ctx.stroke()
+    }
+    
+    // Add subtle shading for 3D effect
+    const shadowIntensity = Math.abs(headRotation.yaw) * 0.3
+    if (shadowIntensity > 0.05) {
+      ctx.fillStyle = `rgba(0, 0, 0, ${shadowIntensity})`
+      const shadowSide = headRotation.yaw > 0 ? -1 : 1
+      ctx.beginPath()
+      ctx.ellipse(shadowSide * headWidth * 0.3, 0, Math.abs(headWidth) / 4, Math.abs(headHeight) / 2, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
     
     ctx.restore()
     
-    // Draw label
+    // Draw label below the ring
     ctx.fillStyle = '#333'
     ctx.font = '12px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('Patient Head', HEAD_X, HEAD_Y + HEAD_SIZE / 2 + 20)
+    ctx.fillText('Patient Head', HEAD_X, CENTER_Y + OUTER_RADIUS + 40)
+    
+    // Add rotation indicator
+    const rotationText = `Yaw: ${(headRotation.yaw * 180 / Math.PI).toFixed(0)}° Pitch: ${(headRotation.pitch * 180 / Math.PI).toFixed(0)}°`
+    ctx.fillStyle = '#666'
+    ctx.font = '10px Arial'
+    ctx.fillText(rotationText, HEAD_X, CENTER_Y + OUTER_RADIUS + 55)
   }
 
   // Physics update
