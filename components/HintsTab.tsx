@@ -60,7 +60,6 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
     backgroundColor: 'white',
     position: 'absolute',
     top: '5px',
-    left: '5px',
     transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
     boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
   };
@@ -68,9 +67,10 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
   const peripheralSelected = value === 'peripheral';
   const centralSelected = value === 'central';
 
-  const knobTransform = peripheralSelected ? 'translateX(0%)' : 'translateX(calc(100% + 10px))';
-
-  const knobColor = peripheralSelected ? '#34d399' : (centralSelected ? '#f87171' : '#ffffff');
+  // Calculate knob position based on selection
+  const knobLeft = peripheralSelected ? '5px' : centralSelected ? 'calc(50% + 5px)' : 'calc(50% - 20px)';
+  const knobWidth = value ? 'calc(50% - 10px)' : '40px';
+  const knobColor = peripheralSelected ? '#34d399' : (centralSelected ? '#f87171' : '#9ca3af');
 
   const textStyle: React.CSSProperties = {
     fontWeight: 600,
@@ -82,8 +82,20 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
 
   return (
     <div style={trackStyle}>
-      {!value && <div style={{...knobStyle, width: '40px', left: 'calc(50% - 20px)', backgroundColor: '#9ca3af'}} />}
-      {value && <motion.div style={{...knobStyle, backgroundColor: knobColor, transform: knobTransform }} layoutId={id} />}
+      <motion.div 
+        style={{
+          ...knobStyle, 
+          backgroundColor: knobColor,
+          left: knobLeft,
+          width: knobWidth
+        }} 
+        animate={{
+          left: knobLeft,
+          width: knobWidth,
+          backgroundColor: knobColor
+        }}
+        transition={{ duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
+      />
       <div style={{ ...textStyle, color: peripheralSelected ? 'white' : 'black' }} onClick={() => onChange('peripheral')}>Peripheral</div>
       <div style={{ ...textStyle, color: centralSelected ? 'white' : 'black' }} onClick={() => onChange('central')}>Central</div>
     </div>
