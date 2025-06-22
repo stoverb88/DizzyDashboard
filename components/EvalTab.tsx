@@ -343,7 +343,7 @@ export function EvalTab() {
   });
 
   return (
-    <div {...swipeHandlers}>
+    <div {...swipeHandlers} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Progress Bar */}
       <div style={{ position: 'relative', height: '4px', backgroundColor: '#e2e8f0', marginBottom: '25px', borderRadius: '2px' }}>
         <motion.div
@@ -360,6 +360,7 @@ export function EvalTab() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -300, opacity: 0 }}
           transition={{ duration: 0.3 }}
+          style={{ flex: 1, minHeight: '400px' }}
         >
           <h2 style={{color: '#1e293b', marginBottom: '20px'}}>{steps[currentStep]}</h2>
 
