@@ -33,8 +33,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const particlesRef = useRef<Particle[]>([])
   
   // Avatar head state - now 3D with pitch and yaw
-  const [headRotation, setHeadRotation] = useState({ pitch: 0, yaw: 0 })
-  const headRotationRef = useRef({ pitch: 0, yaw: 0 })
+  const [headRotation, setHeadRotation] = useState({ pitch: 0, yaw: 0, extension: 0 })
+  const headRotationRef = useRef({ pitch: 0, yaw: 0, extension: 0 })
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 400
@@ -251,147 +251,248 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     }
   }
 
-  // Update head rotation to look at particles with 3D constraints
+  // Update head rotation to look at particles with realistic Epley positions
   const updateHeadRotation = () => {
     const centroid = calculateParticleCentroid()
     
-    // Calculate angle from head to particle centroid
-    const dx = centroid.x - HEAD_X
-    const dy = centroid.y - HEAD_Y
+    // Calculate angle from center to particles to determine head position
+    const dx = centroid.x - CENTER_X
+    const dy = centroid.y - CENTER_Y
+    const angle = Math.atan2(dy, dx)
     
-    // Convert to realistic head rotation angles
-    // Yaw: left/right rotation (based on horizontal displacement)
-    const targetYaw = Math.atan2(dx, 100) // Normalize to reasonable range
+    // Convert angle to 0-2π range for easier calculation
+    let normalizedAngle = angle < 0 ? angle + Math.PI * 2 : angle
     
-    // Pitch: up/down rotation (based on vertical displacement)
-    // Negative dy means particles are above head (look up)
-    const targetPitch = Math.atan2(-dy, 100) // Normalize and invert for intuitive direction
+    // Determine head position based on particle location around the canal
+    // For Right ear Epley sequence:
+    let targetPitch, targetYaw, neckExtension
     
-    // Apply realistic constraints (human neck limitations)
-    const maxYaw = Math.PI / 3 // ±60 degrees
-    const maxPitch = Math.PI / 4 // ±45 degrees
-    
-    const constrainedYaw = Math.max(-maxYaw, Math.min(maxYaw, targetYaw))
-    const constrainedPitch = Math.max(-maxPitch, Math.min(maxPitch, targetPitch))
+    if (selectedEar === 'right') {
+      if (normalizedAngle >= 0 && normalizedAngle < Math.PI / 2) {
+        // Particles at 3-6 o'clock: Chin tucked down, looking right
+        targetPitch = -0.6 // Looking down
+        targetYaw = 0.4 // Looking right
+        neckExtension = 0 // Chin tucked
+      } else if (normalizedAngle >= Math.PI / 2 && normalizedAngle < Math.PI) {
+        // Particles at 6-9 o'clock: Neck extended back, looking over right shoulder
+        targetPitch = 0.3 // Looking up/back
+        targetYaw = 0.8 // Looking far right
+        neckExtension = 0.7 // Neck extended back
+      } else if (normalizedAngle >= Math.PI && normalizedAngle < 3 * Math.PI / 2) {
+        // Particles at 9-12 o'clock: Neck extended back, looking over left shoulder
+        targetPitch = 0.3 // Looking up/back
+        targetYaw = -0.8 // Looking far left
+        neckExtension = 0.7 // Neck extended back
+      } else {
+        // Particles at 12-3 o'clock: Chin tucked down, looking left
+        targetPitch = -0.6 // Looking down
+        targetYaw = -0.4 // Looking left
+        neckExtension = 0 // Chin tucked
+      }
+    } else {
+      // Left ear - mirror the positions
+      if (normalizedAngle >= 0 && normalizedAngle < Math.PI / 2) {
+        targetPitch = -0.6
+        targetYaw = -0.4 // Looking left
+        neckExtension = 0
+      } else if (normalizedAngle >= Math.PI / 2 && normalizedAngle < Math.PI) {
+        targetPitch = 0.3
+        targetYaw = -0.8 // Looking far left
+        neckExtension = 0.7
+      } else if (normalizedAngle >= Math.PI && normalizedAngle < 3 * Math.PI / 2) {
+        targetPitch = 0.3
+        targetYaw = 0.8 // Looking far right
+        neckExtension = 0.7
+      } else {
+        targetPitch = -0.6
+        targetYaw = 0.4 // Looking right
+        neckExtension = 0
+      }
+    }
     
     // Smooth interpolation
     const currentRotation = headRotationRef.current
-    const lerpFactor = 0.08 // Slightly slower for more realistic movement
+    const lerpFactor = 0.06 // Slower for more deliberate movement
     
-    const newYaw = currentRotation.yaw + (constrainedYaw - currentRotation.yaw) * lerpFactor
-    const newPitch = currentRotation.pitch + (constrainedPitch - currentRotation.pitch) * lerpFactor
+    const newPitch = currentRotation.pitch + (targetPitch - currentRotation.pitch) * lerpFactor
+    const newYaw = currentRotation.yaw + (targetYaw - currentRotation.yaw) * lerpFactor
+    const newExtension = (currentRotation as any).extension + (neckExtension - ((currentRotation as any).extension || 0)) * lerpFactor
     
-    headRotationRef.current = { pitch: newPitch, yaw: newYaw }
-    setHeadRotation({ pitch: newPitch, yaw: newYaw })
+    headRotationRef.current = { pitch: newPitch, yaw: newYaw, extension: newExtension } as any
+    setHeadRotation({ pitch: newPitch, yaw: newYaw, extension: newExtension } as any)
   }
 
-  // Draw 3D avatar head with realistic rotation
+  // Draw realistic 3D head showing Epley positions
   const drawAvatarHead = (ctx: CanvasRenderingContext2D) => {
     ctx.save()
     ctx.translate(HEAD_X, HEAD_Y)
     
-    // Calculate 3D perspective effects
-    const yawFactor = Math.cos(headRotation.yaw) // Side-to-side squash
-    const pitchFactor = Math.cos(headRotation.pitch) // Up-down perspective
+    const { pitch, yaw, extension } = headRotation as any
     
-    // Head outline (ellipse for 3D effect)
-    const headWidth = HEAD_SIZE * yawFactor * 0.8
-    const headHeight = HEAD_SIZE * pitchFactor * 0.9
+    // Calculate head position based on neck extension and rotation
+    const neckLength = 15 + (extension * 20) // Neck extends back
+    const headOffsetX = Math.sin(yaw) * (10 + extension * 15)
+    const headOffsetY = -Math.sin(pitch) * 15 - (extension * 10)
     
-    ctx.fillStyle = '#FDBCB4' // Skin tone
-    ctx.strokeStyle = '#8B4513' // Brown outline
-    ctx.lineWidth = 2
-    
-    // Draw head as ellipse
+    // Draw neck
+    ctx.strokeStyle = '#FDBCB4'
+    ctx.lineWidth = 8
     ctx.beginPath()
-    ctx.ellipse(0, 0, Math.abs(headWidth) / 2, Math.abs(headHeight) / 2, 0, 0, Math.PI * 2)
+    ctx.moveTo(0, 10)
+    ctx.lineTo(headOffsetX, headOffsetY + 10)
+    ctx.stroke()
+    
+    // Move to head position
+    ctx.translate(headOffsetX, headOffsetY)
+    
+    // Determine head shape and features based on position
+    let headWidth, headHeight, faceVisible
+    
+    if (Math.abs(yaw) > 0.6) {
+      // Looking over shoulder - profile view
+      headWidth = HEAD_SIZE * 0.4 // Very narrow profile
+      headHeight = HEAD_SIZE * 0.8
+      faceVisible = 'profile'
+    } else if (pitch < -0.3) {
+      // Looking down - top of head view
+      headWidth = HEAD_SIZE * 0.9
+      headHeight = HEAD_SIZE * 0.6 // Compressed from above
+      faceVisible = 'top'
+    } else if (pitch > 0.2) {
+      // Looking up/back - bottom of head view
+      headWidth = HEAD_SIZE * 0.8
+      headHeight = HEAD_SIZE * 0.7
+      faceVisible = 'bottom'
+    } else {
+      // Front view
+      headWidth = HEAD_SIZE * 0.8
+      headHeight = HEAD_SIZE * 0.9
+      faceVisible = 'front'
+    }
+    
+    // Draw head outline
+    ctx.fillStyle = '#FDBCB4'
+    ctx.strokeStyle = '#8B4513'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.ellipse(0, 0, headWidth / 2, headHeight / 2, yaw * 0.3, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
     
-    // Calculate eye positions with 3D perspective
-    const eyeSpacing = 10 * yawFactor
-    const eyeY = -6 * pitchFactor
-    const eyeSize = 4 * Math.min(Math.abs(yawFactor), Math.abs(pitchFactor))
-    
-    if (eyeSize > 1) { // Only draw eyes if they're visible enough
+    // Draw features based on view
+    if (faceVisible === 'profile') {
+      // Profile view - one eye, nose, mouth on side
+      const sideMultiplier = yaw > 0 ? 1 : -1
+      
+      // Eye
+      ctx.fillStyle = '#FFFFFF'
+      ctx.beginPath()
+      ctx.ellipse(sideMultiplier * 8, -5, 4, 3, 0, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // Pupil
+      ctx.fillStyle = '#000000'
+      ctx.beginPath()
+      ctx.arc(sideMultiplier * 8, -5, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // Nose
+      ctx.fillStyle = '#E6A4A4'
+      ctx.beginPath()
+      ctx.ellipse(sideMultiplier * 12, 0, 3, 5, 0, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // Mouth
+      ctx.strokeStyle = '#8B4513'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(sideMultiplier * 8, 8, 4, 0, Math.PI)
+      ctx.stroke()
+      
+    } else if (faceVisible === 'top') {
+      // Top view - hair, ears visible
+      ctx.fillStyle = '#8B4513' // Hair color
+      ctx.beginPath()
+      ctx.ellipse(0, -5, headWidth / 2 - 2, headHeight / 2 - 2, 0, 0, Math.PI * 2)
+      ctx.fill()
+      
+      // Ears
+      ctx.fillStyle = '#FDBCB4'
+      ctx.beginPath()
+      ctx.ellipse(-headWidth / 2 - 3, 0, 4, 8, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.ellipse(headWidth / 2 + 3, 0, 4, 8, 0, 0, Math.PI * 2)
+      ctx.fill()
+      
+    } else if (faceVisible === 'bottom') {
+      // Bottom view - chin, neck visible
+      ctx.fillStyle = '#E6A4A4'
+      ctx.beginPath()
+      ctx.ellipse(0, headHeight / 3, headWidth / 3, headHeight / 4, 0, 0, Math.PI * 2)
+      ctx.fill()
+      
+    } else {
+      // Front view - full face
       // Eyes
       ctx.fillStyle = '#FFFFFF'
-      
-      // Left eye (viewer's perspective)
       ctx.beginPath()
-      ctx.ellipse(-eyeSpacing, eyeY, eyeSize, eyeSize * 0.8, 0, 0, Math.PI * 2)
+      ctx.ellipse(-8, -6, 4, 3, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.ellipse(8, -6, 4, 3, 0, 0, Math.PI * 2)
       ctx.fill()
       
-      // Right eye
-      ctx.beginPath()
-      ctx.ellipse(eyeSpacing, eyeY, eyeSize, eyeSize * 0.8, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Eye pupils
+      // Pupils
       ctx.fillStyle = '#000000'
-      const pupilSize = eyeSize * 0.4
-      const pupilOffsetX = headRotation.yaw * 2 // Eyes look in direction of head turn
-      const pupilOffsetY = headRotation.pitch * 2
-      
-      // Left pupil
+      const pupilOffsetX = yaw * 3
+      const pupilOffsetY = pitch * 2
       ctx.beginPath()
-      ctx.arc(-eyeSpacing + pupilOffsetX, eyeY + pupilOffsetY, pupilSize, 0, Math.PI * 2)
+      ctx.arc(-8 + pupilOffsetX, -6 + pupilOffsetY, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(8 + pupilOffsetX, -6 + pupilOffsetY, 1.5, 0, Math.PI * 2)
       ctx.fill()
       
-      // Right pupil
-      ctx.beginPath()
-      ctx.arc(eyeSpacing + pupilOffsetX, eyeY + pupilOffsetY, pupilSize, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    
-    // Nose (3D perspective)
-    const noseVisible = yawFactor > 0.3 // Only show nose when not too profile
-    if (noseVisible) {
+      // Nose
       ctx.fillStyle = '#E6A4A4'
-      const noseX = headRotation.yaw * 8
-      const noseY = pitchFactor * 2
-      const noseSize = 3 * yawFactor
+      ctx.beginPath()
+      ctx.ellipse(0, 0, 3, 6, 0, 0, Math.PI * 2)
+      ctx.fill()
       
+      // Mouth
+      ctx.strokeStyle = '#8B4513'
+      ctx.lineWidth = 1.5
       ctx.beginPath()
-      ctx.ellipse(noseX, noseY, noseSize, noseSize * 1.5, headRotation.pitch * 0.5, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    
-    // Mouth
-    ctx.strokeStyle = '#8B4513'
-    ctx.lineWidth = 1.5
-    const mouthY = 6 * pitchFactor
-    const mouthWidth = 8 * yawFactor
-    
-    if (Math.abs(mouthWidth) > 2) {
-      ctx.beginPath()
-      ctx.ellipse(0, mouthY, Math.abs(mouthWidth), 3, 0, 0, Math.PI)
+      ctx.arc(0, 8, 6, 0, Math.PI)
       ctx.stroke()
-    }
-    
-    // Add subtle shading for 3D effect
-    const shadowIntensity = Math.abs(headRotation.yaw) * 0.3
-    if (shadowIntensity > 0.05) {
-      ctx.fillStyle = `rgba(0, 0, 0, ${shadowIntensity})`
-      const shadowSide = headRotation.yaw > 0 ? -1 : 1
-      ctx.beginPath()
-      ctx.ellipse(shadowSide * headWidth * 0.3, 0, Math.abs(headWidth) / 4, Math.abs(headHeight) / 2, 0, 0, Math.PI * 2)
-      ctx.fill()
     }
     
     ctx.restore()
     
-    // Draw label below the ring
+    // Draw position labels
     ctx.fillStyle = '#333'
     ctx.font = '12px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('Patient Head', HEAD_X, CENTER_Y + OUTER_RADIUS + 40)
     
-    // Add rotation indicator
-    const rotationText = `Yaw: ${(headRotation.yaw * 180 / Math.PI).toFixed(0)}° Pitch: ${(headRotation.pitch * 180 / Math.PI).toFixed(0)}°`
+    let positionText = 'Patient Head Position: '
+    if (Math.abs((headRotation as any).yaw) > 0.6) {
+      positionText += (headRotation as any).yaw > 0 ? 'Looking Over Right Shoulder' : 'Looking Over Left Shoulder'
+    } else if ((headRotation as any).pitch < -0.3) {
+      positionText += 'Chin Tucked Down'
+    } else if ((headRotation as any).pitch > 0.2) {
+      positionText += 'Neck Extended Back'
+    } else {
+      positionText += 'Neutral'
+    }
+    
+    ctx.fillText(positionText, HEAD_X, CENTER_Y + OUTER_RADIUS + 40)
+    
+    // Show Epley step
+    const stepText = selectedEar === 'right' ? 'Right Ear Epley Sequence' : 'Left Ear Epley Sequence'
     ctx.fillStyle = '#666'
     ctx.font = '10px Arial'
-    ctx.fillText(rotationText, HEAD_X, CENTER_Y + OUTER_RADIUS + 55)
+    ctx.fillText(stepText, HEAD_X, CENTER_Y + OUTER_RADIUS + 55)
   }
 
   // Physics update
