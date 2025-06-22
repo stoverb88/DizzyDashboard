@@ -169,11 +169,11 @@ export function HintsTab() {
         }}>
           <h2 style={{ textAlign: 'center', color: '#333', margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>{item.title}</h2>
           <div style={{ maxWidth: '100%', margin: '0 auto', marginBottom: '12px' }}>
-            <PeripheralCentralSlider 
-              id={item.id}
-              value={selections[item.id]}
-              onChange={(val) => handleSelection(item.id, val)}
-            />
+          <PeripheralCentralSlider 
+            id={item.id}
+            value={selections[item.id]}
+            onChange={(val) => handleSelection(item.id, val)}
+          />
           </div>
           <div style={{
             display: 'flex', 

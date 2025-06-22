@@ -31,6 +31,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
   const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
+  
+  // Avatar head state
+  const [headRotation, setHeadRotation] = useState(0)
+  const headRotationRef = useRef(0)
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 400
@@ -43,6 +47,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const INNER_RADIUS = 100
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
+  
+  // Avatar head dimensions and position
+  const HEAD_SIZE = 60
+  const HEAD_X = CENTER_X
+  const HEAD_Y = CENTER_Y // Center of the hollow ring instead of bottom of canvas
 
   // Get vestibule configuration based on ear type
   const getVestibuleConfig = () => {
@@ -218,6 +227,116 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return isInsideRing(x, y) || isInsideVestibule(x, y)
   }
 
+  // Calculate particle centroid for head tracking
+  const calculateParticleCentroid = () => {
+    if (particlesRef.current.length === 0) return { x: CENTER_X, y: CENTER_Y }
+    
+    let totalX = 0
+    let totalY = 0
+    let validParticles = 0
+    
+    particlesRef.current.forEach(particle => {
+      if (particle.radius > 0) { // Only count non-dissolved particles
+        totalX += particle.x
+        totalY += particle.y
+        validParticles++
+      }
+    })
+    
+    if (validParticles === 0) return { x: CENTER_X, y: CENTER_Y }
+    
+    return {
+      x: totalX / validParticles,
+      y: totalY / validParticles
+    }
+  }
+
+  // Update head rotation to look at particles
+  const updateHeadRotation = () => {
+    const centroid = calculateParticleCentroid()
+    
+    // Calculate angle from head to particle centroid
+    const dx = centroid.x - HEAD_X
+    const dy = centroid.y - HEAD_Y
+    const targetAngle = Math.atan2(dy, dx)
+    
+    // Smooth rotation interpolation
+    const currentAngle = headRotationRef.current
+    let angleDiff = targetAngle - currentAngle
+    
+    // Handle angle wrapping (-π to π)
+    if (angleDiff > Math.PI) angleDiff -= Math.PI * 2
+    if (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+    
+    // Smooth interpolation (adjust 0.1 for faster/slower rotation)
+    const newAngle = currentAngle + angleDiff * 0.1
+    
+    headRotationRef.current = newAngle
+    setHeadRotation(newAngle)
+  }
+
+  // Draw avatar head looking at particles
+  const drawAvatarHead = (ctx: CanvasRenderingContext2D) => {
+    ctx.save()
+    ctx.translate(HEAD_X, HEAD_Y)
+    ctx.rotate(headRotation)
+    
+    // Head outline (circle)
+    ctx.fillStyle = '#FDBCB4' // Skin tone
+    ctx.strokeStyle = '#8B4513' // Brown outline
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(0, 0, HEAD_SIZE / 2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    
+    // Eyes
+    ctx.fillStyle = '#FFFFFF'
+    // Left eye
+    ctx.beginPath()
+    ctx.arc(-12, -8, 6, 0, Math.PI * 2)
+    ctx.fill()
+    // Right eye
+    ctx.beginPath()
+    ctx.arc(12, -8, 6, 0, Math.PI * 2)
+    ctx.fill()
+    
+    // Eye pupils (looking direction)
+    ctx.fillStyle = '#000000'
+    // Left pupil
+    ctx.beginPath()
+    ctx.arc(-12 + 2, -8, 2, 0, Math.PI * 2) // Offset slightly toward look direction
+    ctx.fill()
+    // Right pupil
+    ctx.beginPath()
+    ctx.arc(12 + 2, -8, 2, 0, Math.PI * 2) // Offset slightly toward look direction
+    ctx.fill()
+    
+    // Nose (small triangle pointing in look direction)
+    ctx.fillStyle = '#E6A4A4'
+    ctx.beginPath()
+    ctx.moveTo(8, -2)
+    ctx.lineTo(15, 2)
+    ctx.lineTo(8, 6)
+    ctx.closePath()
+    ctx.fill()
+    
+    // Mouth (small arc)
+    ctx.strokeStyle = '#8B4513'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(0, 8, 8, 0, Math.PI)
+    ctx.stroke()
+    
+    ctx.restore()
+    
+    // Draw label
+    ctx.fillStyle = '#333'
+    ctx.font = '12px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('Patient Head', HEAD_X, HEAD_Y + HEAD_SIZE / 2 + 20)
+  }
+
   // Physics update
   const updatePhysics = useCallback(() => {
     if (!canvasRef.current || !selectedEar) return
@@ -314,7 +433,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
               newVy *= 0.85
             }
           }
-        } 
+        }
         // Inner boundary collision
         else if (distFromCenter < INNER_RADIUS + particle.radius) {
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
@@ -334,7 +453,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             newVy *= 0.85
           }
         }
-      } else if (isInsideVestibule(newX, newY)) {
+      }
+      else if (isInsideVestibule(newX, newY)) {
         const distFromVestibuleCenter = Math.sqrt((newX - vestibuleConfig.centerX) ** 2 + (newY - vestibuleConfig.centerY) ** 2)
         
         if (distFromVestibuleCenter > vestibuleConfig.radius - particle.radius) {
@@ -359,7 +479,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
           particle.dissolving = true
         }
-      } else if (!isInValidSpace(newX, newY)) {
+      }
+      else {
         // Push particle back to valid space with minimal energy loss
         if (isInsideRing(particle.x, particle.y)) {
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
@@ -447,6 +568,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
     particlesRef.current = newParticles
     setParticles(newParticles)
+    
+    // Update head rotation to track particles
+    updateHeadRotation()
   }, [orientation, epleyComplete, selectedEar])
 
   // Animation loop
@@ -580,6 +704,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         ctx.fill()
       }
     })
+
+    // Draw avatar head tracking particles
+    drawAvatarHead(ctx)
 
     // Draw "Epley Complete" success indicator
     if (epleyComplete) {
