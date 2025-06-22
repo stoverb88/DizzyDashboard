@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSwipeable } from 'react-swipeable';
 import { OptionBubbles } from "./ui/OptionBubbles";
 
 const steps = [
@@ -312,8 +313,37 @@ export function EvalTab() {
     }
   };
 
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      if (currentStep < steps.length - 1) {
+        if (currentStep === 5 && formData.planOfCare !== 'peripheral_crm') {
+          setCurrentStep(7);
+        } else if (currentStep === 7) {
+          if (!formData.chartId) {
+            setFormData(prev => ({ ...prev, chartId: generateChartId() }));
+          }
+          setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+        } else {
+          setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+        }
+      }
+    },
+    onSwipedRight: () => {
+      if (currentStep > 0) {
+        if (currentStep === 7 && formData.planOfCare !== 'peripheral_crm') {
+          setCurrentStep(5);
+        } else {
+          setCurrentStep(prev => Math.max(prev - 1, 0));
+        }
+      }
+    },
+    trackMouse: false,
+    preventScrollOnSwipe: false,
+    delta: 50,
+  });
+
   return (
-    <div>
+    <div {...swipeHandlers}>
       {/* Progress Bar */}
       <div style={{ position: 'relative', height: '4px', backgroundColor: '#e2e8f0', marginBottom: '25px', borderRadius: '2px' }}>
         <motion.div
