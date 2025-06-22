@@ -264,9 +264,9 @@ export function EvalTab() {
     }
   };
 
-  const sectionStyle = { backgroundColor: "#fff", border: "1px solid #E2E8F0", padding: "24px", marginBottom: "24px" };
+  const sectionStyle = { backgroundColor: "#fff", border: "1px solid #E2E8F0", padding: "24px", marginBottom: "12px" };
   const labelStyle = { fontWeight: '600', color: '#334155', marginBottom: '10px', display: 'block' };
-  const checkboxLabelStyle = { display: 'flex', alignItems: 'center', marginBottom: '12px', cursor: 'pointer' };
+  const checkboxLabelStyle = { display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' };
   const checkboxStyle = { marginRight: '10px', height: '20px', width: '20px' };
   const selectStyle = { width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #D1D5DB", backgroundColor: "white", fontSize: '1rem' };
   const buttonStyle: React.CSSProperties = {
@@ -372,6 +372,7 @@ export function EvalTab() {
                   background: 'none',
                   border: 'none',
                   fontSize: '24px',
+                  fontWeight: 'bold',
                   cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
                   color: currentStep === 0 ? '#d1d5db' : '#1e293b',
                   padding: '5px',
@@ -397,6 +398,7 @@ export function EvalTab() {
                   background: 'none',
                   border: 'none',
                   fontSize: '24px',
+                  fontWeight: 'bold',
                   cursor: currentStep === steps.length - 1 ? 'not-allowed' : 'pointer',
                   color: currentStep === steps.length - 1 ? '#d1d5db' : '#1e293b',
                   padding: '5px',
