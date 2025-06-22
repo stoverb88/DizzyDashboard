@@ -25,6 +25,7 @@ export default function VestibularScreeningApp() {
   const [appState, setAppState] = useState<'splash' | 'options' | 'eval' | 'find-chart'>('splash');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [evalKey, setEvalKey] = useState(0); // Key to force EvalTab re-render
+  const [isImmersiveMode, setIsImmersiveMode] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -36,12 +37,62 @@ export default function VestibularScreeningApp() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const handleSplashDismiss = () => {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-      });
+  // Add immersive mode CSS when activated
+  useEffect(() => {
+    if (isImmersiveMode) {
+      // Add CSS to hide browser UI and make app more immersive
+      const style = document.createElement('style');
+      style.textContent = `
+        body {
+          overflow: hidden !important;
+        }
+        
+        /* Hide address bar on mobile browsers */
+        @media screen and (max-width: 768px) {
+          html {
+            height: -webkit-fill-available;
+          }
+          
+          body {
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+          }
+        }
+        
+        /* Encourage browsers to hide UI */
+        .immersive-app {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          height: -webkit-fill-available !important;
+          z-index: 9999 !important;
+          background: #f7fafc !important;
+        }
+      `;
+      style.id = 'immersive-mode-styles';
+      document.head.appendChild(style);
+      
+      // Scroll to top to hide address bar on mobile
+      window.scrollTo(0, 1);
+      setTimeout(() => window.scrollTo(0, 0), 100);
+      
+      return () => {
+        const existingStyle = document.getElementById('immersive-mode-styles');
+        if (existingStyle) {
+          existingStyle.remove();
+        }
+        document.body.style.overflow = '';
+      };
     }
+  }, [isImmersiveMode]);
+
+  const handleSplashDismiss = () => {
+    // Enable immersive mode instead of browser fullscreen
+    setIsImmersiveMode(true);
     setAppState('options');
   };
 
@@ -132,12 +183,15 @@ export default function VestibularScreeningApp() {
 
   return (
     <>
-      <div style={{
-        background: "#f7fafc",
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+      <div 
+        className={isImmersiveMode ? 'immersive-app' : ''}
+        style={{
+          background: "#f7fafc",
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
           <div style={headerStyle}>
              <div 
                onClick={handleLogoClick}
