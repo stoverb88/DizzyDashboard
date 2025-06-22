@@ -362,7 +362,61 @@ export function EvalTab() {
           transition={{ duration: 0.3 }}
           style={{ flex: 1, minHeight: '400px' }}
         >
-          <h2 style={{color: '#1e293b', marginBottom: '20px'}}>{steps[currentStep]}</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{color: '#1e293b', margin: 0, flex: 1}}>{steps[currentStep]}</h2>
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+              <button
+                onClick={handleBack}
+                disabled={currentStep === 0}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
+                  color: currentStep === 0 ? '#d1d5db' : '#1e293b',
+                  padding: '5px',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s',
+                  opacity: currentStep === 0 ? 0.3 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (currentStep > 0) {
+                    e.currentTarget.style.backgroundColor = '#f1f5f9';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                ←
+              </button>
+              <button
+                onClick={handleNext}
+                disabled={currentStep === steps.length - 1}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: currentStep === steps.length - 1 ? 'not-allowed' : 'pointer',
+                  color: currentStep === steps.length - 1 ? '#d1d5db' : '#1e293b',
+                  padding: '5px',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s',
+                  opacity: currentStep === steps.length - 1 ? 0.3 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (currentStep < steps.length - 1) {
+                    e.currentTarget.style.backgroundColor = '#f1f5f9';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                →
+              </button>
+            </div>
+          </div>
 
           {currentStep === 0 && (
              <div style={sectionStyle}>
@@ -571,36 +625,6 @@ export function EvalTab() {
 
         </motion.div>
       </AnimatePresence>
-
-      {/* Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px' }}>
-        <button 
-          onClick={handleBack} 
-          disabled={currentStep === 0} 
-          style={{
-            ...buttonStyle, 
-            backgroundColor: currentStep === 0 ? '#d1d5db' : '#667eea',
-            color: 'white',
-            cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
-            boxShadow: currentStep === 0 ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)'
-          }}
-        >
-          Back
-        </button>
-        <button 
-          onClick={handleNext} 
-          disabled={currentStep === steps.length - 1} 
-          style={{
-            ...buttonStyle, 
-            backgroundColor: currentStep === steps.length - 1 ? '#d1d5db' : '#667eea',
-            color: 'white',
-            cursor: currentStep === steps.length - 1 ? 'not-allowed' : 'pointer',
-            boxShadow: currentStep === steps.length - 1 ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)'
-          }}
-        >
-          Next
-        </button>
-      </div>
     </div>
   );
 } 
