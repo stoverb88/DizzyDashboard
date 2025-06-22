@@ -31,8 +31,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
   const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
-  const lastBetaRef = useRef<number | null>(null)
-  const lastGammaRef = useRef<number | null>(null)
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 400
@@ -234,58 +232,32 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         }
       }
 
-      // Convert device orientation to gravity vector with improved stability
-      const gravityStrength = 0.06  // Reduced for more realistic fluid physics
+      // Convert device orientation to gravity vector - simplified and stable
+      const gravityStrength = 0.05  // Gentle gravity for smooth movement
       
-      // Get raw orientation values with fallbacks
-      const beta = orientation.beta || 0   // front-to-back tilt (-180 to 180)
-      const gamma = orientation.gamma || 0 // left-to-right tilt (-90 to 90)
+      // Get orientation values with simple fallbacks
+      const beta = orientation.beta || 0   // front-to-back tilt
+      const gamma = orientation.gamma || 0 // left-to-right tilt
       
-      // Normalize angles to prevent sudden jumps
-      const normalizedBeta = Math.max(-90, Math.min(90, beta))  // Clamp beta to reasonable range
-      const normalizedGamma = Math.max(-90, Math.min(90, gamma)) // Clamp gamma to reasonable range
+      // Simple, stable gravity calculation
+      // Only use gamma (left-right) for X-axis gravity
+      // Only use beta (front-back) for Y-axis gravity, but limit its range
+      let gravityX = Math.sin(gamma * Math.PI / 180) * gravityStrength
+      let gravityY = 0
       
-      // Convert to radians
-      const betaRad = normalizedBeta * Math.PI / 180
-      const gammaRad = normalizedGamma * Math.PI / 180
-      
-      // Calculate gravity components with improved coordinate system
-      // When device is portrait (normal use):
-      // - gamma controls left/right gravity (positive gamma = gravity pulls right)
-      // - beta controls up/down gravity (positive beta = gravity pulls down)
-      
-      let gravityX = Math.sin(gammaRad) * gravityStrength
-      let gravityY = Math.sin(betaRad) * gravityStrength
-      
-      // Apply additional smoothing for orientation transitions
-      // Detect rapid orientation changes and apply extra damping
-      const orientationChangeRate = Math.abs(beta - (lastBetaRef.current || 0)) + Math.abs(gamma - (lastGammaRef.current || 0))
-      if (orientationChangeRate > 10) { // If orientation changed rapidly
-        gravityX *= 0.5  // Reduce gravity influence during rapid transitions
-        gravityY *= 0.5
+      // Only apply Y gravity when beta is in a reasonable range (-45 to 45 degrees)
+      // This prevents the violent flipping when going from landscape to face-down
+      if (Math.abs(beta) <= 45) {
+        gravityY = Math.sin(beta * Math.PI / 180) * gravityStrength
       }
-      
-      // Store last orientation for next frame
-      lastBetaRef.current = beta
-      lastGammaRef.current = gamma
 
       // Update velocity with gravity
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Cap maximum velocity to prevent explosive movements
-      const maxVelocity = 2.0
-      const velocityMagnitude = Math.sqrt(newVx * newVx + newVy * newVy)
-      if (velocityMagnitude > maxVelocity) {
-        const scale = maxVelocity / velocityMagnitude
-        newVx *= scale
-        newVy *= scale
-      }
-
-      // Apply progressive damping (stronger damping at higher speeds)
-      const dampingFactor = 0.992 - (velocityMagnitude * 0.002) // More damping at higher speeds
-      newVx *= dampingFactor
-      newVy *= dampingFactor
+      // Simple, consistent damping
+      newVx *= 0.98
+      newVy *= 0.98
 
       // Predict new position
       let newX = particle.x + newVx
