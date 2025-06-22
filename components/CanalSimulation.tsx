@@ -31,6 +31,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
   const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
+  
+  // Add smoothed gravity tracking
+  const smoothedGravityRef = useRef({ x: 0, y: 0 })
+  const previousOrientationRef = useRef({ beta: 0, gamma: 0 })
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 400
@@ -232,32 +236,54 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         }
       }
 
-      // Convert device orientation to gravity vector - simplified and stable
-      const gravityStrength = 0.05  // Gentle gravity for smooth movement
+      // Convert device orientation to gravity vector with smoothing
+      const gravityStrength = 0.08  // Base gravity strength
       
-      // Get orientation values with simple fallbacks
-      const beta = orientation.beta || 0   // front-to-back tilt
-      const gamma = orientation.gamma || 0 // left-to-right tilt
+      // Detect if device is roughly horizontal
+      const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
       
-      // Simple, stable gravity calculation
-      // Only use gamma (left-right) for X-axis gravity
-      // Only use beta (front-back) for Y-axis gravity, but limit its range
-      let gravityX = Math.sin(gamma * Math.PI / 180) * gravityStrength
-      let gravityY = 0
+      // Calculate raw gravity components
+      let rawGravityX, rawGravityY
       
-      // Only apply Y gravity when beta is in a reasonable range (-45 to 45 degrees)
-      // This prevents the violent flipping when going from landscape to face-down
-      if (Math.abs(beta) <= 45) {
-        gravityY = Math.sin(beta * Math.PI / 180) * gravityStrength
+      if (isHorizontal) {
+        rawGravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
+        rawGravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength * 0.1
+      } else {
+        rawGravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
+        rawGravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength
       }
 
-      // Update velocity with gravity
+      // Detect rapid orientation changes
+      const betaChange = Math.abs((orientation.beta || 0) - previousOrientationRef.current.beta)
+      const gammaChange = Math.abs((orientation.gamma || 0) - previousOrientationRef.current.gamma)
+      const isRapidChange = betaChange > 10 || gammaChange > 10 // Degrees per frame
+      
+      // Apply gravity smoothing to prevent violent reactions
+      const smoothingFactor = isRapidChange ? 0.1 : 0.3 // Heavier smoothing during rapid changes
+      smoothedGravityRef.current.x = smoothedGravityRef.current.x * (1 - smoothingFactor) + rawGravityX * smoothingFactor
+      smoothedGravityRef.current.y = smoothedGravityRef.current.y * (1 - smoothingFactor) + rawGravityY * smoothingFactor
+      
+      // Use smoothed gravity
+      const gravityX = smoothedGravityRef.current.x
+      const gravityY = smoothedGravityRef.current.y
+
+      // Update velocity with smoothed gravity
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Simple, consistent damping
-      newVx *= 0.98
-      newVy *= 0.98
+      // Apply enhanced damping during rapid orientation changes
+      const dampingFactor = isRapidChange ? 0.98 : 0.995 // More damping during transitions
+      newVx *= dampingFactor
+      newVy *= dampingFactor
+
+      // Velocity limiting to prevent excessive speeds
+      const maxVelocity = 2.0
+      const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy)
+      if (currentSpeed > maxVelocity) {
+        const speedMultiplier = maxVelocity / currentSpeed
+        newVx *= speedMultiplier
+        newVy *= speedMultiplier
+      }
 
       // Predict new position
       let newX = particle.x + newVx
@@ -304,17 +330,19 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
             newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
             
-            // Improved reflection with less energy loss
+            // Gentler reflection with more energy loss during rapid changes
             const normalX = Math.cos(angle)
             const normalY = Math.sin(angle)
             const dotProduct = newVx * normalX + newVy * normalY
             
             // Only reflect if moving toward the wall
             if (dotProduct > 0) {
-              newVx = newVx - 1.5 * dotProduct * normalX
-              newVy = newVy - 1.5 * dotProduct * normalY
-              newVx *= 0.85  // Less energy loss
-              newVy *= 0.85
+              const reflectionStrength = isRapidChange ? 1.2 : 1.5
+              const energyLoss = isRapidChange ? 0.7 : 0.85
+              newVx = newVx - reflectionStrength * dotProduct * normalX
+              newVy = newVy - reflectionStrength * dotProduct * normalY
+              newVx *= energyLoss
+              newVy *= energyLoss
             }
           }
         } 
@@ -324,17 +352,19 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           newX = CENTER_X + Math.cos(angle) * (INNER_RADIUS + particle.radius)
           newY = CENTER_Y + Math.sin(angle) * (INNER_RADIUS + particle.radius)
           
-          // Improved reflection with less energy loss
+          // Gentler reflection with more energy loss during rapid changes
           const normalX = -Math.cos(angle)
           const normalY = -Math.sin(angle)
           const dotProduct = newVx * normalX + newVy * normalY
           
           // Only reflect if moving toward the wall
           if (dotProduct > 0) {
-            newVx = newVx - 1.5 * dotProduct * normalX
-            newVy = newVy - 1.5 * dotProduct * normalY
-            newVx *= 0.85  // Less energy loss
-            newVy *= 0.85
+            const reflectionStrength = isRapidChange ? 1.2 : 1.5
+            const energyLoss = isRapidChange ? 0.7 : 0.85
+            newVx = newVx - reflectionStrength * dotProduct * normalX
+            newVy = newVy - reflectionStrength * dotProduct * normalY
+            newVx *= energyLoss
+            newVy *= energyLoss
           }
         }
       } else if (isInsideVestibule(newX, newY)) {
@@ -425,9 +455,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
       // Add minimum velocity to prevent complete sticking
       const minVelocity = 0.01
-      const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy)
-      if (currentSpeed > 0 && currentSpeed < minVelocity && !particle.dissolving) {
-        const speedMultiplier = minVelocity / currentSpeed
+      const finalSpeed = Math.sqrt(newVx * newVx + newVy * newVy)
+      if (finalSpeed > 0 && finalSpeed < minVelocity && !particle.dissolving) {
+        const speedMultiplier = minVelocity / finalSpeed
         newVx *= speedMultiplier
         newVy *= speedMultiplier
       }
@@ -440,6 +470,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         vy: newVy
       }
     })
+
+    // Update previous orientation for next frame
+    previousOrientationRef.current = { beta: orientation.beta || 0, gamma: orientation.gamma || 0 }
 
     // Check if all particles are in vestibule
     const allParticlesInVestibule = newParticles.every(p => p.inAmpulla)
