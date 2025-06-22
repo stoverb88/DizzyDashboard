@@ -31,6 +31,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
   const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
+  const lastBetaRef = useRef<number | null>(null)
+  const lastGammaRef = useRef<number | null>(null)
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 400
@@ -232,29 +234,58 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         }
       }
 
-      // Convert device orientation to gravity vector
-      const gravityStrength = 0.08  // Slow fluid resistance
+      // Convert device orientation to gravity vector with improved stability
+      const gravityStrength = 0.06  // Reduced for more realistic fluid physics
       
-      // Detect if device is roughly horizontal
-      const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
+      // Get raw orientation values with fallbacks
+      const beta = orientation.beta || 0   // front-to-back tilt (-180 to 180)
+      const gamma = orientation.gamma || 0 // left-to-right tilt (-90 to 90)
       
-      let gravityX, gravityY
+      // Normalize angles to prevent sudden jumps
+      const normalizedBeta = Math.max(-90, Math.min(90, beta))  // Clamp beta to reasonable range
+      const normalizedGamma = Math.max(-90, Math.min(90, gamma)) // Clamp gamma to reasonable range
       
-      if (isHorizontal) {
-        gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
-        gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength * 0.1
-      } else {
-        gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
-        gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength
+      // Convert to radians
+      const betaRad = normalizedBeta * Math.PI / 180
+      const gammaRad = normalizedGamma * Math.PI / 180
+      
+      // Calculate gravity components with improved coordinate system
+      // When device is portrait (normal use):
+      // - gamma controls left/right gravity (positive gamma = gravity pulls right)
+      // - beta controls up/down gravity (positive beta = gravity pulls down)
+      
+      let gravityX = Math.sin(gammaRad) * gravityStrength
+      let gravityY = Math.sin(betaRad) * gravityStrength
+      
+      // Apply additional smoothing for orientation transitions
+      // Detect rapid orientation changes and apply extra damping
+      const orientationChangeRate = Math.abs(beta - (lastBetaRef.current || 0)) + Math.abs(gamma - (lastGammaRef.current || 0))
+      if (orientationChangeRate > 10) { // If orientation changed rapidly
+        gravityX *= 0.5  // Reduce gravity influence during rapid transitions
+        gravityY *= 0.5
       }
+      
+      // Store last orientation for next frame
+      lastBetaRef.current = beta
+      lastGammaRef.current = gamma
 
       // Update velocity with gravity
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Apply lighter damping to reduce sticking
-      newVx *= 0.995
-      newVy *= 0.995
+      // Cap maximum velocity to prevent explosive movements
+      const maxVelocity = 2.0
+      const velocityMagnitude = Math.sqrt(newVx * newVx + newVy * newVy)
+      if (velocityMagnitude > maxVelocity) {
+        const scale = maxVelocity / velocityMagnitude
+        newVx *= scale
+        newVy *= scale
+      }
+
+      // Apply progressive damping (stronger damping at higher speeds)
+      const dampingFactor = 0.992 - (velocityMagnitude * 0.002) // More damping at higher speeds
+      newVx *= dampingFactor
+      newVy *= dampingFactor
 
       // Predict new position
       let newX = particle.x + newVx
