@@ -264,11 +264,16 @@ export function EvalTab() {
     }
   };
 
-  const sectionStyle = { backgroundColor: "#fff", border: "1px solid #E2E8F0", padding: "24px", marginBottom: "12px" };
-  const labelStyle = { fontWeight: '600', color: '#334155', marginBottom: '10px', display: 'block' };
-  const checkboxLabelStyle = { display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' };
-  const checkboxStyle = { marginRight: '10px', height: '20px', width: '20px' };
-  const selectStyle = { width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #D1D5DB", backgroundColor: "white", fontSize: '1rem' };
+  const sectionStyle = { 
+    backgroundColor: "#fff", 
+    border: "1px solid #E2E8F0", 
+    padding: window.innerWidth <= 768 ? "12px" : "24px", 
+    marginBottom: "8px" 
+  };
+  const labelStyle = { fontWeight: '600', color: '#334155', marginBottom: '6px', display: 'block' };
+  const checkboxLabelStyle = { display: 'flex', alignItems: 'center', marginBottom: '6px', cursor: 'pointer' };
+  const checkboxStyle = { marginRight: '8px', height: '18px', width: '18px' };
+  const selectStyle = { width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid #D1D5DB", backgroundColor: "white", fontSize: '1rem' };
   const buttonStyle: React.CSSProperties = {
     padding: '15px 20px',
     border: 'none',
@@ -342,10 +347,23 @@ export function EvalTab() {
     delta: 50,
   });
 
+  const isMobile = window.innerWidth <= 768;
+  const isAssociatedSymptomsPage = currentStep === 3;
+  const shouldAllowScroll = isAssociatedSymptomsPage;
+
   return (
-    <div {...swipeHandlers} style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div 
+      {...swipeHandlers} 
+      style={{ 
+        minHeight: '100vh', 
+        maxHeight: isMobile && !shouldAllowScroll ? '100vh' : 'none',
+        overflow: isMobile && !shouldAllowScroll ? 'hidden' : 'auto',
+        display: 'flex', 
+        flexDirection: 'column' 
+      }}
+    >
       {/* Progress Bar */}
-      <div style={{ position: 'relative', height: '4px', backgroundColor: '#e2e8f0', marginBottom: '25px', borderRadius: '2px' }}>
+      <div style={{ position: 'relative', height: '4px', backgroundColor: '#e2e8f0', marginBottom: isMobile ? '15px' : '25px', borderRadius: '2px' }}>
         <motion.div
           style={{ position: 'absolute', height: '100%', backgroundColor: '#2D3748', borderRadius: '2px' }}
           animate={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
@@ -360,25 +378,30 @@ export function EvalTab() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -300, opacity: 0 }}
           transition={{ duration: 0.3 }}
-          style={{ flex: 1, minHeight: '400px' }}
+          style={{ 
+            flex: 1, 
+            minHeight: '400px',
+            overflow: isMobile && !shouldAllowScroll ? 'hidden' : 'auto'
+          }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{color: '#1e293b', margin: 0, flex: 1}}>{steps[currentStep]}</h2>
-            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? '12px' : '20px' }}>
+            <h2 style={{color: '#1e293b', margin: 0, flex: 1, fontSize: isMobile ? '1.3rem' : '1.5rem'}}>{steps[currentStep]}</h2>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <button
                 onClick={handleBack}
                 disabled={currentStep === 0}
                 style={{
                   background: 'none',
                   border: 'none',
-                  fontSize: '24px',
-                  fontWeight: 'bold',
+                  fontSize: isMobile ? '32px' : '28px',
+                  fontWeight: '900',
                   cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
                   color: currentStep === 0 ? '#d1d5db' : '#1e293b',
-                  padding: '5px',
-                  borderRadius: '4px',
+                  padding: '8px',
+                  borderRadius: '6px',
                   transition: 'all 0.2s',
-                  opacity: currentStep === 0 ? 0.3 : 1
+                  opacity: currentStep === 0 ? 0.3 : 1,
+                  lineHeight: 1
                 }}
                 onMouseEnter={(e) => {
                   if (currentStep > 0) {
@@ -397,14 +420,15 @@ export function EvalTab() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  fontSize: '24px',
-                  fontWeight: 'bold',
+                  fontSize: isMobile ? '32px' : '28px',
+                  fontWeight: '900',
                   cursor: currentStep === steps.length - 1 ? 'not-allowed' : 'pointer',
                   color: currentStep === steps.length - 1 ? '#d1d5db' : '#1e293b',
-                  padding: '5px',
-                  borderRadius: '4px',
+                  padding: '8px',
+                  borderRadius: '6px',
                   transition: 'all 0.2s',
-                  opacity: currentStep === steps.length - 1 ? 0.3 : 1
+                  opacity: currentStep === steps.length - 1 ? 0.3 : 1,
+                  lineHeight: 1
                 }}
                 onMouseEnter={(e) => {
                   if (currentStep < steps.length - 1) {
