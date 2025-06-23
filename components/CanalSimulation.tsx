@@ -31,10 +31,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
   const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
-  
-  // Avatar head state - now 3D with pitch and yaw
-  const [headRotation, setHeadRotation] = useState({ pitch: 0, yaw: 0, extension: 0 })
-  const headRotationRef = useRef({ pitch: 0, yaw: 0, extension: 0 })
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 400
@@ -47,11 +43,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const INNER_RADIUS = 100
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
-  
-  // Avatar head dimensions and position - now in center of ring
-  const HEAD_SIZE = 50 // Slightly smaller to fit in center
-  const HEAD_X = CENTER_X
-  const HEAD_Y = CENTER_Y
 
   // Get vestibule configuration based on ear type
   const getVestibuleConfig = () => {
@@ -168,9 +159,39 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     if (!permissionGranted) return
 
     const handleOrientation = (event: DeviceOrientationEvent) => {
-      setOrientation({
-        beta: event.beta || 0,   // front-to-back tilt
-        gamma: event.gamma || 0  // left-to-right tilt
+      // Get raw orientation values
+      let beta = event.beta || 0
+      let gamma = event.gamma || 0
+      
+      // Detect and filter out extreme orientation changes that cause gimbal lock
+      // If beta jumps more than 90 degrees from previous value, it's likely a gimbal lock spike
+      setOrientation(prev => {
+        const betaDiff = Math.abs(beta - prev.beta)
+        const gammaDiff = Math.abs(gamma - prev.gamma)
+        
+        // If there's a massive jump (>90°), ignore this reading and keep previous values
+        if (betaDiff > 90 || gammaDiff > 90) {
+          return prev // Keep previous stable values
+        }
+        
+        // Clamp to reasonable physiological range (±30° is plenty for Epley)
+        beta = Math.max(-30, Math.min(30, beta))
+        gamma = Math.max(-30, Math.min(30, gamma))
+        
+        // Ensure we never create "upward" gravity - always maintain downward component
+        // If beta would create strong upward force, limit it
+        if (beta < -20) beta = -20  // Prevent extreme forward tilt
+        if (beta > 20) beta = 20    // Prevent extreme backward tilt
+        
+        // Smooth the orientation changes
+        const smoothingFactor = 0.85 // Increased smoothing
+        const newBeta = prev.beta * smoothingFactor + beta * (1 - smoothingFactor)
+        const newGamma = prev.gamma * smoothingFactor + gamma * (1 - smoothingFactor)
+        
+        return {
+          beta: newBeta,
+          gamma: newGamma
+        }
       })
     }
 
@@ -227,274 +248,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     return isInsideRing(x, y) || isInsideVestibule(x, y)
   }
 
-  // Calculate particle centroid for head tracking
-  const calculateParticleCentroid = () => {
-    if (particlesRef.current.length === 0) return { x: CENTER_X, y: CENTER_Y }
-    
-    let totalX = 0
-    let totalY = 0
-    let validParticles = 0
-    
-    particlesRef.current.forEach(particle => {
-      if (particle.radius > 0) { // Only count non-dissolved particles
-        totalX += particle.x
-        totalY += particle.y
-        validParticles++
-      }
-    })
-    
-    if (validParticles === 0) return { x: CENTER_X, y: CENTER_Y }
-    
-    return {
-      x: totalX / validParticles,
-      y: totalY / validParticles
-    }
-  }
-
-  // Update head rotation to look at particles with realistic Epley positions
-  const updateHeadRotation = () => {
-    const centroid = calculateParticleCentroid()
-    
-    // Calculate angle from center to particles to determine head position
-    const dx = centroid.x - CENTER_X
-    const dy = centroid.y - CENTER_Y
-    const angle = Math.atan2(dy, dx)
-    
-    // Convert angle to 0-2π range for easier calculation
-    let normalizedAngle = angle < 0 ? angle + Math.PI * 2 : angle
-    
-    // Determine head position based on particle location around the canal
-    // For Right ear Epley sequence:
-    let targetPitch, targetYaw, neckExtension
-    
-    if (selectedEar === 'right') {
-      if (normalizedAngle >= 0 && normalizedAngle < Math.PI / 2) {
-        // Particles at 3-6 o'clock: Chin tucked down, looking right
-        targetPitch = -0.6 // Looking down
-        targetYaw = 0.4 // Looking right
-        neckExtension = 0 // Chin tucked
-      } else if (normalizedAngle >= Math.PI / 2 && normalizedAngle < Math.PI) {
-        // Particles at 6-9 o'clock: Neck extended back, looking over right shoulder
-        targetPitch = 0.3 // Looking up/back
-        targetYaw = 0.8 // Looking far right
-        neckExtension = 0.7 // Neck extended back
-      } else if (normalizedAngle >= Math.PI && normalizedAngle < 3 * Math.PI / 2) {
-        // Particles at 9-12 o'clock: Neck extended back, looking over left shoulder
-        targetPitch = 0.3 // Looking up/back
-        targetYaw = -0.8 // Looking far left
-        neckExtension = 0.7 // Neck extended back
-      } else {
-        // Particles at 12-3 o'clock: Chin tucked down, looking left
-        targetPitch = -0.6 // Looking down
-        targetYaw = -0.4 // Looking left
-        neckExtension = 0 // Chin tucked
-      }
-    } else {
-      // Left ear - mirror the positions
-      if (normalizedAngle >= 0 && normalizedAngle < Math.PI / 2) {
-        targetPitch = -0.6
-        targetYaw = -0.4 // Looking left
-        neckExtension = 0
-      } else if (normalizedAngle >= Math.PI / 2 && normalizedAngle < Math.PI) {
-        targetPitch = 0.3
-        targetYaw = -0.8 // Looking far left
-        neckExtension = 0.7
-      } else if (normalizedAngle >= Math.PI && normalizedAngle < 3 * Math.PI / 2) {
-        targetPitch = 0.3
-        targetYaw = 0.8 // Looking far right
-        neckExtension = 0.7
-      } else {
-        targetPitch = -0.6
-        targetYaw = 0.4 // Looking right
-        neckExtension = 0
-      }
-    }
-    
-    // Smooth interpolation
-    const currentRotation = headRotationRef.current
-    const lerpFactor = 0.06 // Slower for more deliberate movement
-    
-    const newPitch = currentRotation.pitch + (targetPitch - currentRotation.pitch) * lerpFactor
-    const newYaw = currentRotation.yaw + (targetYaw - currentRotation.yaw) * lerpFactor
-    const newExtension = (currentRotation as any).extension + (neckExtension - ((currentRotation as any).extension || 0)) * lerpFactor
-    
-    headRotationRef.current = { pitch: newPitch, yaw: newYaw, extension: newExtension } as any
-    setHeadRotation({ pitch: newPitch, yaw: newYaw, extension: newExtension } as any)
-  }
-
-  // Draw realistic 3D head showing Epley positions
-  const drawAvatarHead = (ctx: CanvasRenderingContext2D) => {
-    ctx.save()
-    ctx.translate(HEAD_X, HEAD_Y)
-    
-    const { pitch, yaw, extension } = headRotation as any
-    
-    // Calculate head position based on neck extension and rotation
-    const neckLength = 15 + (extension * 20) // Neck extends back
-    const headOffsetX = Math.sin(yaw) * (10 + extension * 15)
-    const headOffsetY = -Math.sin(pitch) * 15 - (extension * 10)
-    
-    // Draw neck
-    ctx.strokeStyle = '#FDBCB4'
-    ctx.lineWidth = 8
-    ctx.beginPath()
-    ctx.moveTo(0, 10)
-    ctx.lineTo(headOffsetX, headOffsetY + 10)
-    ctx.stroke()
-    
-    // Move to head position
-    ctx.translate(headOffsetX, headOffsetY)
-    
-    // Determine head shape and features based on position
-    let headWidth, headHeight, faceVisible
-    
-    if (Math.abs(yaw) > 0.6) {
-      // Looking over shoulder - profile view
-      headWidth = HEAD_SIZE * 0.4 // Very narrow profile
-      headHeight = HEAD_SIZE * 0.8
-      faceVisible = 'profile'
-    } else if (pitch < -0.3) {
-      // Looking down - top of head view
-      headWidth = HEAD_SIZE * 0.9
-      headHeight = HEAD_SIZE * 0.6 // Compressed from above
-      faceVisible = 'top'
-    } else if (pitch > 0.2) {
-      // Looking up/back - bottom of head view
-      headWidth = HEAD_SIZE * 0.8
-      headHeight = HEAD_SIZE * 0.7
-      faceVisible = 'bottom'
-    } else {
-      // Front view
-      headWidth = HEAD_SIZE * 0.8
-      headHeight = HEAD_SIZE * 0.9
-      faceVisible = 'front'
-    }
-    
-    // Draw head outline
-    ctx.fillStyle = '#FDBCB4'
-    ctx.strokeStyle = '#8B4513'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.ellipse(0, 0, headWidth / 2, headHeight / 2, yaw * 0.3, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    
-    // Draw features based on view
-    if (faceVisible === 'profile') {
-      // Profile view - one eye, nose, mouth on side
-      const sideMultiplier = yaw > 0 ? 1 : -1
-      
-      // Eye
-      ctx.fillStyle = '#FFFFFF'
-      ctx.beginPath()
-      ctx.ellipse(sideMultiplier * 8, -5, 4, 3, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Pupil
-      ctx.fillStyle = '#000000'
-      ctx.beginPath()
-      ctx.arc(sideMultiplier * 8, -5, 1.5, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Nose
-      ctx.fillStyle = '#E6A4A4'
-      ctx.beginPath()
-      ctx.ellipse(sideMultiplier * 12, 0, 3, 5, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Mouth
-      ctx.strokeStyle = '#8B4513'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.arc(sideMultiplier * 8, 8, 4, 0, Math.PI)
-      ctx.stroke()
-      
-    } else if (faceVisible === 'top') {
-      // Top view - hair, ears visible
-      ctx.fillStyle = '#8B4513' // Hair color
-      ctx.beginPath()
-      ctx.ellipse(0, -5, headWidth / 2 - 2, headHeight / 2 - 2, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Ears
-      ctx.fillStyle = '#FDBCB4'
-      ctx.beginPath()
-      ctx.ellipse(-headWidth / 2 - 3, 0, 4, 8, 0, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.ellipse(headWidth / 2 + 3, 0, 4, 8, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-    } else if (faceVisible === 'bottom') {
-      // Bottom view - chin, neck visible
-      ctx.fillStyle = '#E6A4A4'
-      ctx.beginPath()
-      ctx.ellipse(0, headHeight / 3, headWidth / 3, headHeight / 4, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-    } else {
-      // Front view - full face
-      // Eyes
-      ctx.fillStyle = '#FFFFFF'
-      ctx.beginPath()
-      ctx.ellipse(-8, -6, 4, 3, 0, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.ellipse(8, -6, 4, 3, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Pupils
-      ctx.fillStyle = '#000000'
-      const pupilOffsetX = yaw * 3
-      const pupilOffsetY = pitch * 2
-      ctx.beginPath()
-      ctx.arc(-8 + pupilOffsetX, -6 + pupilOffsetY, 1.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(8 + pupilOffsetX, -6 + pupilOffsetY, 1.5, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Nose
-      ctx.fillStyle = '#E6A4A4'
-      ctx.beginPath()
-      ctx.ellipse(0, 0, 3, 6, 0, 0, Math.PI * 2)
-      ctx.fill()
-      
-      // Mouth
-      ctx.strokeStyle = '#8B4513'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.arc(0, 8, 6, 0, Math.PI)
-      ctx.stroke()
-    }
-    
-    ctx.restore()
-    
-    // Draw position labels
-    ctx.fillStyle = '#333'
-    ctx.font = '12px Arial'
-    ctx.textAlign = 'center'
-    
-    let positionText = 'Patient Head Position: '
-    if (Math.abs((headRotation as any).yaw) > 0.6) {
-      positionText += (headRotation as any).yaw > 0 ? 'Looking Over Right Shoulder' : 'Looking Over Left Shoulder'
-    } else if ((headRotation as any).pitch < -0.3) {
-      positionText += 'Chin Tucked Down'
-    } else if ((headRotation as any).pitch > 0.2) {
-      positionText += 'Neck Extended Back'
-    } else {
-      positionText += 'Neutral'
-    }
-    
-    ctx.fillText(positionText, HEAD_X, CENTER_Y + OUTER_RADIUS + 40)
-    
-    // Show Epley step
-    const stepText = selectedEar === 'right' ? 'Right Ear Epley Sequence' : 'Left Ear Epley Sequence'
-    ctx.fillStyle = '#666'
-    ctx.font = '10px Arial'
-    ctx.fillText(stepText, HEAD_X, CENTER_Y + OUTER_RADIUS + 55)
-  }
-
   // Physics update
   const updatePhysics = useCallback(() => {
     if (!canvasRef.current || !selectedEar) return
@@ -510,7 +263,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
 
       // Convert device orientation to gravity vector
-      const gravityStrength = 0.08  // Slow fluid resistance
+      const gravityStrength = 0.02  // Further reduced for viscous fluid simulation - like otoconia in endolymph
       
       // Detect if device is roughly horizontal
       const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
@@ -530,8 +283,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       let newVy = particle.vy + gravityY
 
       // Apply lighter damping to reduce sticking
-      newVx *= 0.995
-      newVy *= 0.995
+      newVx *= 0.998  // Reduced damping to prevent wall sticking
+      newVy *= 0.998
 
       // Predict new position
       let newX = particle.x + newVx
@@ -578,41 +331,40 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             newX = CENTER_X + Math.cos(angle) * (OUTER_RADIUS - particle.radius)
             newY = CENTER_Y + Math.sin(angle) * (OUTER_RADIUS - particle.radius)
             
-            // Improved reflection with less energy loss
+            // Gentler reflection to prevent sticking
             const normalX = Math.cos(angle)
             const normalY = Math.sin(angle)
             const dotProduct = newVx * normalX + newVy * normalY
             
             // Only reflect if moving toward the wall
             if (dotProduct > 0) {
-              newVx = newVx - 1.5 * dotProduct * normalX
-              newVy = newVy - 1.5 * dotProduct * normalY
-              newVx *= 0.85  // Less energy loss
-              newVy *= 0.85
+              newVx = newVx - 1.2 * dotProduct * normalX  // Reduced from 1.5
+              newVy = newVy - 1.2 * dotProduct * normalY
+              newVx *= 0.95  // Increased from 0.85 to maintain momentum
+              newVy *= 0.95
             }
           }
-        }
+        } 
         // Inner boundary collision
         else if (distFromCenter < INNER_RADIUS + particle.radius) {
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
           newX = CENTER_X + Math.cos(angle) * (INNER_RADIUS + particle.radius)
           newY = CENTER_Y + Math.sin(angle) * (INNER_RADIUS + particle.radius)
           
-          // Improved reflection with less energy loss
+          // Gentler reflection to prevent sticking
           const normalX = -Math.cos(angle)
           const normalY = -Math.sin(angle)
           const dotProduct = newVx * normalX + newVy * normalY
           
           // Only reflect if moving toward the wall
           if (dotProduct > 0) {
-            newVx = newVx - 1.5 * dotProduct * normalX
-            newVy = newVy - 1.5 * dotProduct * normalY
-            newVx *= 0.85  // Less energy loss
-            newVy *= 0.85
+            newVx = newVx - 1.2 * dotProduct * normalX  // Reduced from 1.5
+            newVy = newVy - 1.2 * dotProduct * normalY
+            newVx *= 0.95  // Increased from 0.85 to maintain momentum
+            newVy *= 0.95
           }
         }
-      }
-      else if (isInsideVestibule(newX, newY)) {
+      } else if (isInsideVestibule(newX, newY)) {
         const distFromVestibuleCenter = Math.sqrt((newX - vestibuleConfig.centerX) ** 2 + (newY - vestibuleConfig.centerY) ** 2)
         
         if (distFromVestibuleCenter > vestibuleConfig.radius - particle.radius) {
@@ -637,8 +389,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         if (Math.abs(newVx) < 0.1 && Math.abs(newVy) < 0.1) {
           particle.dissolving = true
         }
-      }
-      else {
+      } else if (!isInValidSpace(newX, newY)) {
         // Push particle back to valid space with minimal energy loss
         if (isInsideRing(particle.x, particle.y)) {
           const angle = Math.atan2(newY - CENTER_Y, newX - CENTER_X)
@@ -726,9 +477,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
     particlesRef.current = newParticles
     setParticles(newParticles)
-    
-    // Update head rotation to track particles
-    updateHeadRotation()
   }, [orientation, epleyComplete, selectedEar])
 
   // Animation loop
@@ -863,9 +611,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
     })
 
-    // Draw avatar head tracking particles
-    drawAvatarHead(ctx)
-
     // Draw "Epley Complete" success indicator
     if (epleyComplete) {
       ctx.fillStyle = '#10B981'
@@ -895,6 +640,14 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.fillText(`${selectedEar === 'left' ? 'Left' : 'Right'} Semicircular Canal`, CENTER_X, CENTER_Y - OUTER_RADIUS - 20)
     ctx.fillText('Cupula', cupulaX, cupulaY + cupulaHeight / 2 + 20)
     ctx.fillText('Vestibule', vestibuleConfig.centerX, vestibuleConfig.centerY + vestibuleConfig.radius + 15)
+    
+    // Debug: Show orientation values for local development
+    ctx.fillStyle = '#666'
+    ctx.font = '12px Arial'
+    ctx.textAlign = 'left'
+    ctx.fillText(`β: ${orientation.beta.toFixed(1)}°`, 10, 30)
+    ctx.fillText(`γ: ${orientation.gamma.toFixed(1)}°`, 10, 50)
+    ctx.fillText(`Permission: ${permissionGranted ? 'Yes' : 'No'}`, 10, 70)
   }
 
   // Handle canvas click for Epley Complete reset
@@ -1148,6 +901,21 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                   }}
                 >
                   Switch Ear
+                </button>
+                <button
+                  onClick={() => setOrientation({ beta: 20, gamma: 15 })}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Test Gravity
                 </button>
               </div>
             </div>
