@@ -19,6 +19,7 @@ interface CanalSimulationProps {
 }
 
 type EarType = 'right' | 'left' | null
+type PerspectiveType = 'patient' | 'clinician' | null
 
 export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -28,19 +29,40 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [permissionGranted, setPermissionGranted] = useState(false)
   const [epleyComplete, setEpleyComplete] = useState(false)
   const [selectedEar, setSelectedEar] = useState<EarType>(null)
+  const [selectedPerspective, setSelectedPerspective] = useState<PerspectiveType>(null)
   const [orientationLockPrompted, setOrientationLockPrompted] = useState(false)
   const [orientationSetupComplete, setOrientationSetupComplete] = useState(false)
   const particlesRef = useRef<Particle[]>([])
+  
+  // Avatar slideshow state
+  const [currentAvatarStage, setCurrentAvatarStage] = useState(1) // Start with stage 1
+  
+  // Completion animation state
+  const [completionAnimationStarted, setCompletionAnimationStarted] = useState(false)
+  const [avatarOpacity, setAvatarOpacity] = useState(1.0)
+  const [successOpacity, setSuccessOpacity] = useState(0.0)
+  const completionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Avatar transition animation state
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [previousAvatarStage, setPreviousAvatarStage] = useState(1)
+  const [transitionProgress, setTransitionProgress] = useState(0) // 0 to 1
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Particle detection delay state
+  const [detectedStage, setDetectedStage] = useState(1)
+  const [detectionTimer, setDetectionTimer] = useState<NodeJS.Timeout | null>(null)
+  const detectionDelayMs = 250 // 0.25 seconds
 
   // Canvas dimensions - optimized for mobile
-  const CANVAS_WIDTH = 400
-  const CANVAS_HEIGHT = 400
+  const CANVAS_WIDTH = 450  // Increased from 400
+  const CANVAS_HEIGHT = 450 // Increased from 400
   const CENTER_X = CANVAS_WIDTH / 2
   const CENTER_Y = CANVAS_HEIGHT / 2
   
-  // Ring dimensions
-  const OUTER_RADIUS = 140
-  const INNER_RADIUS = 100
+  // Ring dimensions - scaled to fill larger canvas
+  const OUTER_RADIUS = 180  // Increased from 157 (was 140 originally)
+  const INNER_RADIUS = 130  // Increased from 112 (was 100 originally)
   const TUBE_WIDTH = OUTER_RADIUS - INNER_RADIUS
   const PARTICLE_RADIUS = Math.floor(TUBE_WIDTH / 8) // 1/8th tube width
 
@@ -51,18 +73,18 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       const VESTIBULE_ANGLE = Math.PI * 2/3 // 4 o'clock position (120 degrees)
       return {
         angle: VESTIBULE_ANGLE,
-        centerX: CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
-        centerY: CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
-        radius: 70
+        centerX: CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 60), // Increased from 50
+        centerY: CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 60), // Increased from 50
+        radius: 85 // Increased from 70
       }
     } else {
       // Right ear: vestibule at 4 o'clock position (original)
       const VESTIBULE_ANGLE = Math.PI / 3 // 4 o'clock position (60 degrees)
       return {
         angle: VESTIBULE_ANGLE,
-        centerX: CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
-        centerY: CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 50),
-        radius: 70
+        centerX: CENTER_X + Math.cos(VESTIBULE_ANGLE) * (OUTER_RADIUS + 60), // Increased from 50
+        centerY: CENTER_Y + Math.sin(VESTIBULE_ANGLE) * (OUTER_RADIUS + 60), // Increased from 50
+        radius: 85 // Increased from 70
       }
     }
   }
@@ -103,7 +125,115 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     setParticles(newParticles)
     particlesRef.current = newParticles
     setEpleyComplete(false)
+    setCurrentAvatarStage(1) // Reset avatar to starting position
+    
+    // Reset completion animation state
+    setCompletionAnimationStarted(false)
+    setAvatarOpacity(1.0)
+    setSuccessOpacity(0.0)
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current)
+      completionTimeoutRef.current = null
+    }
+    
+    // Reset transition animation state
+    setIsTransitioning(false)
+    setPreviousAvatarStage(1)
+    setTransitionProgress(0)
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current)
+      transitionTimeoutRef.current = null
+    }
+    
+    // Reset detection delay state
+    setDetectedStage(1)
+    if (detectionTimer) {
+      clearTimeout(detectionTimer)
+      setDetectionTimer(null)
+    }
   }, [selectedEar])
+
+  // Start completion animation sequence
+  const startCompletionAnimation = useCallback(() => {
+    if (completionAnimationStarted) return
+    
+    setCompletionAnimationStarted(true)
+    
+    // Phase 1: Fade out avatar over 1 second
+    const fadeOutInterval = setInterval(() => {
+      setAvatarOpacity(prev => {
+        const newOpacity = prev - 0.05 // Fade out in 20 steps (1 second at 50ms intervals)
+        if (newOpacity <= 0) {
+          clearInterval(fadeOutInterval)
+          return 0
+        }
+        return newOpacity
+      })
+    }, 50)
+    
+    // Phase 2: After 1 second, fade in success indicator
+    completionTimeoutRef.current = setTimeout(() => {
+      setEpleyComplete(true)
+      
+      const fadeInInterval = setInterval(() => {
+        setSuccessOpacity(prev => {
+          const newOpacity = prev + 0.05 // Fade in over 1 second
+          if (newOpacity >= 1) {
+            clearInterval(fadeInInterval)
+            return 1
+          }
+          return newOpacity
+        })
+      }, 50)
+    }, 1000)
+  }, [completionAnimationStarted])
+
+  // Start avatar transition animation
+  const startAvatarTransition = useCallback((newStage: number) => {
+    if (isTransitioning || newStage === currentAvatarStage) return
+    
+    // Clean up any existing transition
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current)
+    }
+    
+    setPreviousAvatarStage(currentAvatarStage)
+    setIsTransitioning(true)
+    setTransitionProgress(0)
+    
+    // Smooth transition over 800ms
+    const transitionDuration = 800
+    const steps = 40 // 20ms intervals for smooth animation
+    const stepDuration = transitionDuration / steps
+    
+    let step = 0
+    const transitionInterval = setInterval(() => {
+      step++
+      const progress = step / steps
+      
+      // Use easeInOutCubic for natural movement feel
+      const easedProgress = progress < 0.5 
+        ? 4 * progress * progress * progress 
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2
+      
+      setTransitionProgress(easedProgress)
+      
+      if (step >= steps) {
+        clearInterval(transitionInterval)
+        setCurrentAvatarStage(newStage)
+        setIsTransitioning(false)
+        setTransitionProgress(0)
+      }
+    }, stepDuration)
+    
+    // Cleanup timeout
+    transitionTimeoutRef.current = setTimeout(() => {
+      clearInterval(transitionInterval)
+      setCurrentAvatarStage(newStage)
+      setIsTransitioning(false)
+      setTransitionProgress(0)
+    }, transitionDuration + 100)
+  }, [isTransitioning, currentAvatarStage])
 
   // Try to lock orientation
   const lockOrientation = async () => {
@@ -209,7 +339,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const checkCupulaCollision = (x: number, y: number, radius: number): boolean => {
     const cupulaX = CENTER_X
     const cupulaWidth = TUBE_WIDTH * 0.7
-    const cupulaHeight = TUBE_WIDTH * 0.95
+    const cupulaHeight = TUBE_WIDTH * 0.85
     const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
     
     return (
@@ -232,7 +362,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     const connectionX = CENTER_X + Math.cos(vestibuleConfig.angle) * OUTER_RADIUS
     const connectionY = CENTER_Y + Math.sin(vestibuleConfig.angle) * OUTER_RADIUS
     const connectionWidth = 50
-    const connectionHeight = 40
+    const connectionHeight = 38
     
     // Check if point is in the connection/bridge area (rotated rectangle)
     const dx = x - connectionX
@@ -282,9 +412,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Apply lighter damping to reduce sticking
-      newVx *= 0.998  // Reduced damping to prevent wall sticking
-      newVy *= 0.998
+      // Apply lighter damping to reduce sticking - slightly reduced for better mobility
+      newVx *= 0.999  // Reduced from 0.998 to maintain more momentum
+      newVy *= 0.999
 
       // Predict new position
       let newX = particle.x + newVx
@@ -338,10 +468,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             
             // Only reflect if moving toward the wall
             if (dotProduct > 0) {
-              newVx = newVx - 1.2 * dotProduct * normalX  // Reduced from 1.5
-              newVy = newVy - 1.2 * dotProduct * normalY
-              newVx *= 0.95  // Increased from 0.85 to maintain momentum
-              newVy *= 0.95
+              newVx = newVx - 1.1 * dotProduct * normalX  // Reduced from 1.2 for gentler reflection
+              newVy = newVy - 1.1 * dotProduct * normalY
+              newVx *= 0.97  // Slightly increased from 0.95 to maintain more energy
+              newVy *= 0.97
             }
           }
         } 
@@ -358,10 +488,10 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           
           // Only reflect if moving toward the wall
           if (dotProduct > 0) {
-            newVx = newVx - 1.2 * dotProduct * normalX  // Reduced from 1.5
-            newVy = newVy - 1.2 * dotProduct * normalY
-            newVx *= 0.95  // Increased from 0.85 to maintain momentum
-            newVy *= 0.95
+            newVx = newVx - 1.1 * dotProduct * normalX  // Reduced from 1.2 for gentler reflection
+            newVy = newVy - 1.1 * dotProduct * normalY
+            newVx *= 0.97  // Slightly increased from 0.95 to maintain more energy
+            newVy *= 0.97
           }
         }
       } else if (isInsideVestibule(newX, newY)) {
@@ -407,7 +537,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       // Check cupula collision
       if (checkCupulaCollision(newX, newY, particle.radius) && !nowInVestibule) {
         const cupulaX = CENTER_X
-        const cupulaHeight = TUBE_WIDTH * 0.95
+        const cupulaHeight = TUBE_WIDTH * 0.85
         const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
         const pushAngle = Math.atan2(newY - cupulaY, newX - cupulaX)
         const pushDistance = particle.radius + TUBE_WIDTH * 0.5
@@ -428,8 +558,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           
           if (distance < minDistance && distance > 0) {
             const overlap = minDistance - distance
-            const separationX = (dx / distance) * (overlap * 0.5)
-            const separationY = (dy / distance) * (overlap * 0.5)
+            const separationX = (dx / distance) * (overlap * 0.6)  // Increased from 0.5 for better separation
+            const separationY = (dy / distance) * (overlap * 0.6)
             
             newX += separationX
             newY += separationY
@@ -442,16 +572,21 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
             
             if (velocityAlongNormal > 0) return
             
-            const restitution = 0.8
+            const restitution = 0.85  // Increased from 0.8 for slightly more bouncy collisions
             const impulse = -(1 + restitution) * velocityAlongNormal / 2
             newVx += impulse * normalX
             newVy += impulse * normalY
+            
+            // Add slight repulsion to prevent clumping
+            const repulsionStrength = 0.02
+            newVx += normalX * repulsionStrength
+            newVy += normalY * repulsionStrength
           }
         }
       })
 
       // Add minimum velocity to prevent complete sticking
-      const minVelocity = 0.01
+      const minVelocity = 0.008  // Reduced from 0.01 to allow more natural stopping
       const currentSpeed = Math.sqrt(newVx * newVx + newVy * newVy)
       if (currentSpeed > 0 && currentSpeed < minVelocity && !particle.dissolving) {
         const speedMultiplier = minVelocity / currentSpeed
@@ -471,13 +606,17 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Check if all particles are in vestibule
     const allParticlesInVestibule = newParticles.every(p => p.inAmpulla)
     
-    if (allParticlesInVestibule && !epleyComplete) {
-      setEpleyComplete(true)
+    if (allParticlesInVestibule && !epleyComplete && currentAvatarStage === 5 && !completionAnimationStarted) {
+      // All particles are in vestibule AND we're at final stage 5 - start completion animation
+      startCompletionAnimation()
     }
 
     particlesRef.current = newParticles
     setParticles(newParticles)
-  }, [orientation, epleyComplete, selectedEar])
+    
+    // Update avatar stage based on particle positions
+    updateAvatarStage()
+  }, [orientation, epleyComplete, selectedEar, currentAvatarStage, completionAnimationStarted, startCompletionAnimation])
 
   // Animation loop
   useEffect(() => {
@@ -487,7 +626,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       animationRef.current = requestAnimationFrame(animate)
     }
 
-    if (permissionGranted && selectedEar) {
+    if (permissionGranted && selectedEar && selectedPerspective) {
       animate()
     }
 
@@ -496,11 +635,37 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [updatePhysics, permissionGranted, selectedEar])
+  }, [updatePhysics, permissionGranted, selectedEar, selectedPerspective])
 
   // Handle Epley Complete click
   const handleEpleyCompleteClick = () => {
     initializeParticles()
+    setCurrentAvatarStage(1) // Reset avatar to starting position
+    
+    // Reset all animation states
+    setCompletionAnimationStarted(false)
+    setAvatarOpacity(1.0)
+    setSuccessOpacity(0.0)
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current)
+      completionTimeoutRef.current = null
+    }
+    
+    // Reset transition animation states
+    setIsTransitioning(false)
+    setPreviousAvatarStage(1)
+    setTransitionProgress(0)
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current)
+      transitionTimeoutRef.current = null
+    }
+    
+    // Reset detection delay states
+    setDetectedStage(1)
+    if (detectionTimer) {
+      clearTimeout(detectionTimer)
+      setDetectionTimer(null)
+    }
   }
 
   // Draw function
@@ -537,8 +702,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Draw connection between ring and vestibule
     const connectionX = CENTER_X + Math.cos(vestibuleConfig.angle) * OUTER_RADIUS
     const connectionY = CENTER_Y + Math.sin(vestibuleConfig.angle) * OUTER_RADIUS
-    const connectionWidth = 40
-    const connectionHeight = 30
+    const connectionWidth = 50  // Increased from 40
+    const connectionHeight = 38 // Increased from 30
     
     ctx.fillStyle = '#87CEEB'
     ctx.save()
@@ -578,7 +743,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     // Draw cupula
     const cupulaX = CENTER_X
     const cupulaWidth = TUBE_WIDTH * 0.7
-    const cupulaHeight = TUBE_WIDTH * 0.95
+    const cupulaHeight = TUBE_WIDTH * 0.85
     const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
     
     ctx.fillStyle = '#8B4513'
@@ -589,14 +754,14 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       cupulaHeight
     )
     
-    // Draw hair structures
+    // Draw hair structures - scaled for larger cupula
     ctx.strokeStyle = '#654321'
-    ctx.lineWidth = 1.5
-    for (let i = 0; i < 10; i++) {
-      const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 9) * i
+    ctx.lineWidth = 2 // Increased from 1.5 for better visibility
+    for (let i = 0; i < 12; i++) { // Increased from 10 hairs
+      const hairX = cupulaX - cupulaWidth / 2 + (cupulaWidth / 11) * i
       ctx.beginPath()
       ctx.moveTo(hairX, cupulaY - cupulaHeight / 2)
-      const hairHeight = 4 + Math.sin(i * 0.5) * 2
+      const hairHeight = 6 + Math.sin(i * 0.5) * 3 // Increased hair height
       ctx.lineTo(hairX, cupulaY - cupulaHeight / 2 - hairHeight)
       ctx.stroke()
     }
@@ -611,8 +776,143 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
     })
 
+    // Draw perspective avatars in center of ring
+    if (selectedPerspective && (selectedPerspective === 'clinician' || selectedPerspective === 'patient')) {
+      const maxAvatarSize = INNER_RADIUS * 1.4 // Maximum size to fit in center
+      
+      if (isTransitioning) {
+        // During transition, draw both previous and current avatars with crossfade
+        const previousAvatarImage = new Image()
+        const currentAvatarImage = new Image()
+        
+        // Get paths for both avatars
+        const earPrefix = selectedEar === 'right' ? 'R' : 'L'
+        const perspectiveType = selectedPerspective === 'patient' ? 'treat' : 'epley'
+        
+        previousAvatarImage.src = `/avatars/${earPrefix}_${perspectiveType}_${previousAvatarStage}.png`
+        currentAvatarImage.src = `/avatars/${earPrefix}_${perspectiveType}_${currentAvatarStage}.png`
+        
+        const drawTransitionAvatars = () => {
+          if (previousAvatarImage.complete && currentAvatarImage.complete && 
+              previousAvatarImage.naturalWidth > 0 && currentAvatarImage.naturalWidth > 0) {
+            
+            // Calculate dimensions for both avatars
+            const prevAspectRatio = previousAvatarImage.naturalWidth / previousAvatarImage.naturalHeight
+            const currAspectRatio = currentAvatarImage.naturalWidth / currentAvatarImage.naturalHeight
+            
+            let prevWidth, prevHeight, currWidth, currHeight
+            
+            // Previous avatar dimensions
+            if (prevAspectRatio > 1) {
+              prevWidth = maxAvatarSize
+              prevHeight = maxAvatarSize / prevAspectRatio
+            } else {
+              prevHeight = maxAvatarSize
+              prevWidth = maxAvatarSize * prevAspectRatio
+            }
+            
+            // Current avatar dimensions
+            if (currAspectRatio > 1) {
+              currWidth = maxAvatarSize
+              currHeight = maxAvatarSize / currAspectRatio
+            } else {
+              currHeight = maxAvatarSize
+              currWidth = maxAvatarSize * currAspectRatio
+            }
+            
+            // Calculate positions with slight movement simulation
+            const baseX = CENTER_X
+            const baseY = CENTER_Y
+            
+            // Simulate natural head/neck movement during transitions
+            const movementOffset = 8 // pixels of movement
+            const rotationMovement = Math.sin(transitionProgress * Math.PI) * movementOffset
+            
+            // Previous avatar position (fading out)
+            const prevX = baseX - prevWidth / 2 - rotationMovement * 0.3
+            const prevY = baseY - prevHeight / 2
+            
+            // Current avatar position (fading in)
+            const currX = baseX - currWidth / 2 + rotationMovement * 0.3
+            const currY = baseY - currHeight / 2
+            
+            // Draw previous avatar (fading out)
+            ctx.globalAlpha = (1 - transitionProgress) * avatarOpacity
+            ctx.drawImage(previousAvatarImage, prevX, prevY, prevWidth, prevHeight)
+            
+            // Draw current avatar (fading in)
+            ctx.globalAlpha = transitionProgress * avatarOpacity
+            ctx.drawImage(currentAvatarImage, currX, currY, currWidth, currHeight)
+            
+            ctx.globalAlpha = 1.0 // Reset alpha
+          }
+        }
+        
+        // Draw immediately if both loaded, or set onload handlers
+        if (previousAvatarImage.complete && currentAvatarImage.complete) {
+          drawTransitionAvatars()
+        } else {
+          let loadedCount = 0
+          const checkBothLoaded = () => {
+            loadedCount++
+            if (loadedCount === 2) drawTransitionAvatars()
+          }
+          
+          if (!previousAvatarImage.complete) previousAvatarImage.onload = checkBothLoaded
+          if (!currentAvatarImage.complete) currentAvatarImage.onload = checkBothLoaded
+          
+          // If one is already loaded, increment counter
+          if (previousAvatarImage.complete) loadedCount++
+          if (currentAvatarImage.complete) loadedCount++
+          
+          if (loadedCount === 2) drawTransitionAvatars()
+        }
+      } else {
+        // Normal drawing (no transition)
+        const avatarImage = new Image()
+        avatarImage.src = getAvatarImagePath()
+        
+        const drawAvatar = () => {
+          if (avatarImage.complete && avatarImage.naturalWidth > 0) {
+            // Calculate aspect ratio to maintain original proportions
+            const aspectRatio = avatarImage.naturalWidth / avatarImage.naturalHeight
+            
+            let avatarWidth, avatarHeight
+            
+            if (aspectRatio > 1) {
+              // Wider than tall - constrain by width
+              avatarWidth = maxAvatarSize
+              avatarHeight = maxAvatarSize / aspectRatio
+            } else {
+              // Taller than wide - constrain by height
+              avatarHeight = maxAvatarSize
+              avatarWidth = maxAvatarSize * aspectRatio
+            }
+            
+            const avatarX = CENTER_X - avatarWidth / 2
+            const avatarY = CENTER_Y - avatarHeight / 2
+            
+            // Apply opacity for fade-out animation
+            ctx.globalAlpha = avatarOpacity
+            ctx.drawImage(avatarImage, avatarX, avatarY, avatarWidth, avatarHeight)
+            ctx.globalAlpha = 1.0 // Reset alpha
+          }
+        }
+        
+        // Draw immediately if already loaded, or set onload handler
+        if (avatarImage.complete) {
+          drawAvatar()
+        } else {
+          avatarImage.onload = drawAvatar
+        }
+      }
+    }
+
     // Draw "Epley Complete" success indicator
     if (epleyComplete) {
+      // Apply opacity for fade-in animation
+      ctx.globalAlpha = successOpacity
+      
       ctx.fillStyle = '#10B981'
       ctx.beginPath()
       ctx.arc(CENTER_X, CENTER_Y, 25, 0, Math.PI * 2)
@@ -631,6 +931,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       ctx.textAlign = 'center'
       ctx.fillText('Epley Complete', CENTER_X, CENTER_Y + 45)
       ctx.fillText('Tap to Reset', CENTER_X, CENTER_Y + 60)
+      
+      ctx.globalAlpha = 1.0 // Reset alpha
     }
 
     // Draw labels
@@ -640,14 +942,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     ctx.fillText(`${selectedEar === 'left' ? 'Left' : 'Right'} Semicircular Canal`, CENTER_X, CENTER_Y - OUTER_RADIUS - 20)
     ctx.fillText('Cupula', cupulaX, cupulaY + cupulaHeight / 2 + 20)
     ctx.fillText('Vestibule', vestibuleConfig.centerX, vestibuleConfig.centerY + vestibuleConfig.radius + 15)
-    
-    // Debug: Show orientation values for local development
-    ctx.fillStyle = '#666'
-    ctx.font = '12px Arial'
-    ctx.textAlign = 'left'
-    ctx.fillText(`β: ${orientation.beta.toFixed(1)}°`, 10, 30)
-    ctx.fillText(`γ: ${orientation.gamma.toFixed(1)}°`, 10, 50)
-    ctx.fillText(`Permission: ${permissionGranted ? 'Yes' : 'No'}`, 10, 70)
   }
 
   // Handle canvas click for Epley Complete reset
@@ -667,12 +961,157 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     }
   }
 
-  // Initialize particles when ear is selected
+  // Initialize particles when ear and perspective are selected
   useEffect(() => {
-    if (selectedEar) {
+    if (selectedEar && selectedPerspective) {
       initializeParticles()
     }
-  }, [selectedEar, initializeParticles])
+  }, [selectedEar, selectedPerspective, initializeParticles])
+
+  // Cleanup completion timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+      }
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current)
+      }
+      if (detectionTimer) {
+        clearTimeout(detectionTimer)
+      }
+    }
+  }, [detectionTimer])
+
+  // Helper function to determine which bracket a particle is in
+  function getParticleBracket(particle: Particle): string {
+    const dx = particle.x - CENTER_X
+    const dy = particle.y - CENTER_Y
+    const angle = Math.atan2(dy, dx)
+    let degrees = (angle * 180) / Math.PI
+    if (degrees < 0) degrees += 360
+
+    if (selectedEar === 'right') {
+      // Right ear brackets - stage 2 triggers after 30-40° of movement
+      // Red bracket: Starting position + initial settling zone (3-5 o'clock)
+      if (degrees >= 90 && degrees < 130) return 'red'  // 40° window for settling
+      // Yellow bracket: First intentional movement (supine position)
+      if (degrees >= 130 && degrees < 210) return 'yellow'  // Triggers after 40° movement
+      // Blue bracket: Top of canal
+      if (degrees >= 210 && degrees < 290) return 'blue'
+      // Orange bracket: Right side, approaching vestibule
+      if (degrees >= 290 || degrees < 45) return 'orange'
+      // Green bracket: Final vestibule position
+      if (degrees >= 45 && degrees < 90) return 'green'
+    } else {
+      // Left ear brackets - stage 2 triggers after 30-40° of movement
+      // Red bracket: Starting position + initial settling zone (12-2 o'clock)
+      if (degrees >= 30 && degrees < 70) return 'red'  // 40° window for settling
+      // Yellow bracket: First intentional movement (supine position)
+      if (degrees >= 70 && degrees < 150) return 'yellow'  // Triggers after 40° movement
+      if (degrees >= 320 || degrees < 30) return 'yellow'  // Additional coverage for left ear
+      // Blue bracket: Top of canal
+      if (degrees >= 210 && degrees < 290) return 'blue'
+      // Orange bracket: Left side, approaching vestibule
+      if (degrees >= 150 && degrees < 210) return 'orange'
+      // Green bracket: Final vestibule position
+      if (degrees >= 290 && degrees < 320) return 'green'
+    }
+    
+    return 'red' // default to starting position
+  }
+
+  // Helper function to get avatar image path
+  function getAvatarImagePath(): string {
+    if (!selectedEar || !selectedPerspective) return ''
+    
+    const earPrefix = selectedEar === 'right' ? 'R' : 'L'
+    const perspectiveType = selectedPerspective === 'patient' ? 'treat' : 'epley'
+    
+    return `/avatars/${earPrefix}_${perspectiveType}_${currentAvatarStage}.png`
+  }
+
+  // Helper function to get stage description
+  function getStageDescription(): string {
+    if (selectedEar === 'left') {
+      // Left ear Epley maneuver instructions
+      switch (currentAvatarStage) {
+        case 1: return 'Seated Head Left'
+        case 2: return 'Supine Head Left Neck Extended'
+        case 3: return 'Supine Head Right Neck Extended'
+        case 4: return 'Right Sidelying Head Right and Chin Tucked'
+        case 5: return 'Seated with Chin Tucked'
+        default: return 'Seated Head Left'
+      }
+    } else {
+      // Right ear Epley maneuver instructions (original)
+      switch (currentAvatarStage) {
+        case 1: return 'Seated Head Right'
+        case 2: return 'Supine Head Right Neck Extended'
+        case 3: return 'Supine Head Left Neck Extended'
+        case 4: return 'Left Sidelying Head Left and Chin Tucked'
+        case 5: return 'Seated with Chin Tucked'
+        default: return 'Seated Head Right'
+      }
+    }
+  }
+
+  // Update avatar stage based on particle positions
+  function updateAvatarStage() {
+    if (particlesRef.current.length < 1) return
+
+    // Count particles in each bracket
+    const bracketCounts = { red: 0, yellow: 0, blue: 0, orange: 0, green: 0 }
+    particlesRef.current.forEach(particle => {
+      const bracket = getParticleBracket(particle)
+      bracketCounts[bracket as keyof typeof bracketCounts]++
+    })
+
+    // Find the bracket with at least 1 particle (1/4 threshold)
+    let targetBracket = 'red' // default
+    for (const [bracket, count] of Object.entries(bracketCounts)) {
+      if (count >= 1) {
+        targetBracket = bracket
+        break
+      }
+    }
+
+    // Map brackets to avatar stages (only move forward)
+    const bracketToStage: { [key: string]: number } = {
+      red: 1,    // Stage 1
+      yellow: 2, // Stage 2
+      blue: 3,   // Stage 3
+      orange: 4, // Stage 4
+      green: 5   // Stage 5
+    }
+
+    const newStage = bracketToStage[targetBracket]
+    
+    if (newStage > currentAvatarStage) {
+      // Check if this is a new detection or the same stage we're already waiting for
+      if (newStage !== detectedStage) {
+        // New stage detected - clear any existing timer and start new one
+        if (detectionTimer) {
+          clearTimeout(detectionTimer)
+        }
+        
+        setDetectedStage(newStage)
+        
+        const newTimer = setTimeout(() => {
+          startAvatarTransition(newStage)
+          setDetectionTimer(null)
+        }, detectionDelayMs)
+        
+        setDetectionTimer(newTimer)
+      }
+      // If it's the same stage we're already waiting for, just let the timer continue
+    } else if (newStage <= currentAvatarStage && detectionTimer) {
+      // Particles moved back to previous stage - cancel pending transition
+      clearTimeout(detectionTimer)
+      setDetectionTimer(null)
+      setDetectedStage(currentAvatarStage)
+    }
+  }
 
   return (
     <div style={{
@@ -720,14 +1159,17 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
       {/* Main content */}
       <div style={{ 
-        marginTop: '80px',
+        marginTop: '70px',  // Reduced from 80px
+        marginBottom: '15px', // Reduced from 20px
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '20px',
+        gap: '12px',  // Reduced from 15px
         width: '100%',
         maxWidth: '500px',
-        padding: '0 20px'
+        padding: '0 15px',  // Reduced from 20px
+        overflowY: 'auto',
+        maxHeight: 'calc(100vh - 100px)'  // Adjusted for smaller header margin
       }}>
         {/* Ear Selection Screen */}
         {!selectedEar && (
@@ -781,8 +1223,104 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           </div>
         )}
 
+        {/* Perspective Selection Screen */}
+        {selectedEar && !selectedPerspective && (
+          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <h3 style={{ marginBottom: '10px' }}>Select Training Perspective</h3>
+            <p style={{ marginBottom: '30px', color: '#666', fontSize: '14px' }}>
+              Choose your learning perspective for the {selectedEar} ear Epley maneuver
+            </p>
+            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setSelectedPerspective('patient')}
+                style={{
+                  padding: '20px 30px',
+                  borderRadius: '12px',
+                  border: '2px solid #667eea',
+                  backgroundColor: 'white',
+                  color: '#667eea',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.1)',
+                  minWidth: '140px',
+                  textAlign: 'center'
+                }}
+              >
+                Patient Perspective<br/>
+                <span style={{ fontSize: '12px', opacity: 0.7 }}>3rd Person Body View</span>
+              </button>
+              <button
+                onClick={() => setSelectedPerspective('clinician')}
+                style={{
+                  padding: '20px 30px',
+                  borderRadius: '12px',
+                  border: '2px solid #10b981',
+                  backgroundColor: 'white',
+                  color: '#10b981',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.1)',
+                  minWidth: '140px',
+                  textAlign: 'center'
+                }}
+              >
+                Clinician Perspective<br/>
+                <span style={{ fontSize: '12px', opacity: 0.7 }}>1st Person Face View</span>
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedEar(null)
+                setSelectedPerspective(null)
+                setEpleyComplete(false)
+                setCurrentAvatarStage(1) // Reset avatar stage
+                // Don't reset orientation setup - keep it for switching ears
+                
+                // Clean up completion animation
+                setCompletionAnimationStarted(false)
+                setAvatarOpacity(1.0)
+                setSuccessOpacity(0.0)
+                if (completionTimeoutRef.current) {
+                  clearTimeout(completionTimeoutRef.current)
+                  completionTimeoutRef.current = null
+                }
+                
+                // Clean up transition animation
+                setIsTransitioning(false)
+                setPreviousAvatarStage(1)
+                setTransitionProgress(0)
+                if (transitionTimeoutRef.current) {
+                  clearTimeout(transitionTimeoutRef.current)
+                  transitionTimeoutRef.current = null
+                }
+                
+                // Clean up detection delay
+                setDetectedStage(1)
+                if (detectionTimer) {
+                  clearTimeout(detectionTimer)
+                  setDetectionTimer(null)
+                }
+              }}
+              style={{
+                marginTop: '20px',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                border: '1px solid #d1d5db',
+                backgroundColor: 'white',
+                color: '#666',
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+            >
+              ← Back to Ear Selection
+            </button>
+          </div>
+        )}
+
         {/* Orientation Lock Prompt - Only show if orientation setup not complete */}
-        {selectedEar && orientationLockPrompted && !orientationSetupComplete && (
+        {selectedEar && selectedPerspective && orientationLockPrompted && !orientationSetupComplete && (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
             <h3>📱 Lock Screen Rotation</h3>
             <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
@@ -819,7 +1357,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         )}
 
         {/* Orientation Permission Screen - Only show if orientation setup not complete */}
-        {selectedEar && !orientationLockPrompted && !permissionGranted && !orientationSetupComplete && (
+        {selectedEar && selectedPerspective && !orientationLockPrompted && !permissionGranted && !orientationSetupComplete && (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
             <h3>📲 Enable Device Orientation</h3>
             <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
@@ -844,9 +1382,49 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           </div>
         )}
 
-        {/* Simulation Canvas - Show if ear selected and (permission granted OR orientation setup complete) */}
-        {selectedEar && (permissionGranted || orientationSetupComplete) && (
+        {/* Simulation Canvas - Show if ear and perspective selected and (permission granted OR orientation setup complete) */}
+        {selectedEar && selectedPerspective && (permissionGranted || orientationSetupComplete) && (
           <>
+            {/* Clinician Perspective Instructions (above canvas) */}
+            {selectedPerspective === 'clinician' && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                marginBottom: '8px',
+                textAlign: 'center'
+              }}>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#333',
+                  margin: '0 0 2px 0',
+                  fontWeight: '600'
+                }}>
+                  Stage {currentAvatarStage}/5: {getStageDescription()}
+                </p>
+              </div>
+            )}
+
+            {/* Patient Perspective Instructions (above canvas) */}
+            {selectedPerspective === 'patient' && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                marginBottom: '8px',
+                textAlign: 'center'
+              }}>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#333',
+                  margin: '0 0 2px 0',
+                  fontWeight: '600'
+                }}>
+                  Stage {currentAvatarStage}/5: {getStageDescription()}
+                </p>
+              </div>
+            )}
+            
             <canvas
               ref={canvasRef}
               width={CANVAS_WIDTH}
@@ -886,8 +1464,35 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                 <button
                   onClick={() => {
                     setSelectedEar(null)
+                    setSelectedPerspective(null)
                     setEpleyComplete(false)
+                    setCurrentAvatarStage(1) // Reset avatar stage
                     // Don't reset orientation setup - keep it for switching ears
+                    
+                    // Clean up completion animation
+                    setCompletionAnimationStarted(false)
+                    setAvatarOpacity(1.0)
+                    setSuccessOpacity(0.0)
+                    if (completionTimeoutRef.current) {
+                      clearTimeout(completionTimeoutRef.current)
+                      completionTimeoutRef.current = null
+                    }
+                    
+                    // Clean up transition animation
+                    setIsTransitioning(false)
+                    setPreviousAvatarStage(1)
+                    setTransitionProgress(0)
+                    if (transitionTimeoutRef.current) {
+                      clearTimeout(transitionTimeoutRef.current)
+                      transitionTimeoutRef.current = null
+                    }
+                    
+                    // Clean up detection delay
+                    setDetectedStage(1)
+                    if (detectionTimer) {
+                      clearTimeout(detectionTimer)
+                      setDetectionTimer(null)
+                    }
                   }}
                   style={{
                     padding: '10px 20px',
@@ -901,21 +1506,6 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                   }}
                 >
                   Switch Ear
-                </button>
-                <button
-                  onClick={() => setOrientation({ beta: 20, gamma: 15 })}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: '#3b82f6',
-                    color: 'white',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Test Gravity
                 </button>
               </div>
             </div>

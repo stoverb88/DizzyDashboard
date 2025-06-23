@@ -24,7 +24,7 @@ const triggerOptions = [ { value: "Spontaneous", label: "Spontaneous" }, { value
 
 const planOfCareOptions = [
   { value: "peripheral_education", label: "Suspect peripheral vestibular cause. Patient Education on symptom management and referral to outpatient vestibular therapy services for further followup care" },
-  { value: "peripheral_crm", label: "Suspect peripheral vestibular cause (BPPV). Perform Canalith repositioning manuevers" },
+  { value: "peripheral_crm", label: "Suspect peripheral vestibular cause. Perform Canalith repositioning manuevers" },
   { value: "mixed_lifestyle", label: "Suspect peripheral/central cause. Patient Education on lifestyle modification and medication management, referral to PCP or ENT for further followup care" },
   { value: "central_workup", label: "Suspect central cause. Recommend further medical workup based on severity or variability in symptoms (RED Flags)" },
 ];
@@ -70,6 +70,7 @@ const associatedSymptomsList = [
     { category: "Vestibular", items: ["Nausea", "Vomiting", "Oscillopsia (visual world moving)", "Unsteadiness walking"] },
     { category: "Neurologic", items: ["Headache", "Visual loss", "Sensory disturbances", "Hiccups", "Facial numbness"] },
     { category: "Migraine-Associated", items: ["Photophobia (light sensitivity)", "Phonophobia (sound sensitivity)", "Osmophobia (smell sensitivity)", "Visual aura", "Unilateral headache"] },
+    { category: "Cardiovascular", items: ["Chest pain", "Palpitations", "Shortness of breath", "Fatigue", "Syncope/near-syncope"] },
 ];
 
 const redFlagList = [
@@ -81,6 +82,7 @@ const redFlagList = [
   { id: "incoordination", label: "Incoordination" },
   { id: "lostConsciousness", label: "Loss of consciousness" },
   { id: "chestPain", label: "Chest Pain" },
+  { id: "syncopalEpisode", label: "Syncopal Episode" },
 ];
 
 const oculomotorExamQuestions = [
@@ -105,6 +107,7 @@ export function EvalTab() {
       incoordination: false,
       lostConsciousness: false,
       chestPain: false,
+      syncopalEpisode: false,
     },
     hearingChanges: "", hearingLoss: "", hearingSide: "", tinnitus: "", tinnitusType: "", tinnitusGradual: "", audiogram: "", earFullness: "", earFullnessSide: "", mri: false, ctScan: false, smoke: "", drink: "", onsetDate: "", onsetType: "", activity: "", symptomType: "", trigger: "", worseWith: [] as string[], episodeDuration: "", episodeDurationSpecific: "", spontaneousVsTriggered: "", dixHallpikeResult: "", orthostaticVitals: "", associatedSymptoms: [] as string[], oscillopsia: false, tendencyToFall: false, nausea: false, vomiting: false, orthostaticBP: "", chestPainDetails: "", palpitations: false, boneConduction: false, soundInducedVertigo: false, pulsatileTinnitus: false, autophony: false, barotrauma: false, viralIllness: false, functionalImpairment: "", visualStimuli: false, darknessWorse: false, unevenGroundWorse: false,
     planOfCare: "",
@@ -186,6 +189,7 @@ export function EvalTab() {
         incoordination: "incoordination",
         lostConsciousness: "loss of consciousness",
         chestPain: "chest pain",
+        syncopalEpisode: "syncopal episode",
     };
 
     const selectedRedFlags = Object.entries(redFlags)
@@ -208,14 +212,17 @@ export function EvalTab() {
     const vestibularSymptomsList = ["Nausea", "Vomiting", "Oscillopsia (visual world moving)", "Unsteadiness walking"];
     const neurologicSymptomsList = ["Headache", "Visual loss", "Sensory disturbances", "Hiccups", "Facial numbness"];
     const migraineFeaturesList = ["Photophobia (light sensitivity)", "Phonophobia (sound sensitivity)", "Osmophobia (smell sensitivity)", "Visual aura", "Unilateral headache"];
+    const cardiovascularSymptomsList = ["Chest pain", "Palpitations", "Shortness of breath", "Fatigue", "Syncope/near-syncope"];
     const presentVestibular = vestibularSymptomsList.filter(symptom => associatedSymptoms.includes(symptom));
     const presentNeurologic = neurologicSymptomsList.filter(symptom => associatedSymptoms.includes(symptom));
     const presentMigraine = migraineFeaturesList.filter(symptom => associatedSymptoms.includes(symptom));
+    const presentCardiovascular = cardiovascularSymptomsList.filter(symptom => associatedSymptoms.includes(symptom));
     if (associatedSymptoms.length > 0) {
       narrative += "\n\nAssociated Symptoms:\n";
       if (presentVestibular.length > 0) narrative += `- Vestibular: ${presentVestibular.join(', ')}\n`;
       if (presentNeurologic.length > 0) narrative += `- Neurologic: ${presentNeurologic.join(', ')}\n`;
       if (presentMigraine.length > 0) narrative += `- Migraine-Associated: ${presentMigraine.join(', ')}\n`;
+      if (presentCardiovascular.length > 0) narrative += `- Cardiovascular: ${presentCardiovascular.join(', ')}\n`;
     }
     const oculomotorTests = [ { label: "Spontaneous Nystagmus", value: oculomotorExam.spontaneousNystagmus }, { label: "Gaze-Evoked Nystagmus", value: oculomotorExam.gazeEvokedNystagmus }, { label: "Saccadic Eye Movements", value: oculomotorExam.saccadicEyeMovements }, { label: "VOR Cancellation", value: oculomotorExam.vorCancellation }, { label: "Head Impulse Test (HIT)", value: oculomotorExam.headImpulseTest }, { label: "Test of Skew Deviation", value: oculomotorExam.testOfSkew } ];
     const presentOculomotor = oculomotorTests.filter(test => test.value);
@@ -263,14 +270,6 @@ export function EvalTab() {
     padding: window.innerWidth <= 768 ? "12px" : "24px", 
     marginBottom: "8px" 
   };
-  
-  const planOfCareSectionStyle = {
-    backgroundColor: "#fff", 
-    border: "1px solid #E2E8F0", 
-    padding: window.innerWidth <= 768 ? "20px" : "32px", 
-    marginBottom: "12px" 
-  };
-
   const labelStyle = { fontWeight: '600', color: '#334155', marginBottom: '6px', display: 'block' };
   const checkboxLabelStyle = { display: 'flex', alignItems: 'center', marginBottom: '6px', cursor: 'pointer' };
   const checkboxStyle = { marginRight: '8px', height: '18px', width: '18px' };
@@ -542,11 +541,11 @@ export function EvalTab() {
           )}
 
           {currentStep === 5 && (
-            <div style={planOfCareSectionStyle}>
+            <div style={sectionStyle}>
               <h3 style={{...labelStyle, fontSize: '1.1rem'}}>Plan of Care</h3>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {planOfCareOptions.map(option => (
-                  <label key={option.value} style={{ ...checkboxLabelStyle, alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <label key={option.value} style={{ ...checkboxLabelStyle, alignItems: 'flex-start' }}>
                     <input
                       type="radio"
                       name="planOfCare"
