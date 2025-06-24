@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSwipeable } from 'react-swipeable';
 import { OptionBubbles } from "./ui/OptionBubbles";
@@ -9,10 +9,11 @@ const steps = [
   "Hearing & Ear Health",
   "Associated Symptoms",
   "Oculomotor Exam",
+  "Positional Testing",
   "Plan of Care",
   "Treatment Provided",
   "Narrative Summary",
-  "Conclusion"
+  "Export"
 ];
 
 const yesNoOptions = [ { value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
@@ -23,10 +24,10 @@ const onsetOptions = [ { value: "Abrupt", label: "Abrupt" }, { value: "Gradual",
 const triggerOptions = [ { value: "Spontaneous", label: "Spontaneous" }, { value: "Positional Changes", label: "Positional Changes" }, { value: "Head Motion", label: "Head Motion" }, { value: "Pressure Changes", label: "Pressure Changes" }];
 
 const planOfCareOptions = [
-  { value: "peripheral_education", label: "Suspect peripheral vestibular cause. Patient Education on symptom management and referral to outpatient vestibular therapy services for further followup care" },
-  { value: "peripheral_crm", label: "Suspect peripheral vestibular cause. Perform Canalith repositioning manuevers" },
-  { value: "mixed_lifestyle", label: "Suspect peripheral/central cause. Patient Education on lifestyle modification and medication management, referral to PCP or ENT for further followup care" },
-  { value: "central_workup", label: "Suspect central cause. Recommend further medical workup based on severity or variability in symptoms (RED Flags)" },
+  { value: "peripheral_education", label: "Suspect peripheral vestibular cause (<strong>Neuritis, Labrynthitis, Bilateral Vestibulopathy</strong>). Patient Education on symptom management and referral to outpatient vestibular therapy services for further followup care" },
+  { value: "peripheral_crm", label: "Suspect peripheral vestibular cause (<strong>BPPV</strong>). Perform Canalith repositioning manuevers. Patient Education on symptom management and referral to outpatient vestibular therapy services for further followup care if symptoms persist" },
+  { value: "mixed_lifestyle", label: "Suspect peripheral/central cause (<strong>Meniere's, Vestibular Migraine, SCD, PLF, PPPD</strong>). Patient Education on lifestyle modification and medication management, referral to PCP or ENT for further followup care" },
+  { value: "central_workup", label: "Suspect central cause (<strong>CVA, Other Central/Vascular Pathology</strong>). Recommend further medical workup based on severity or variability in symptoms (RED Flags)" },
 ];
 
 const treatmentManeuverOptions = [
@@ -70,7 +71,6 @@ const associatedSymptomsList = [
     { category: "Vestibular", items: ["Nausea", "Vomiting", "Oscillopsia (visual world moving)", "Unsteadiness walking"] },
     { category: "Neurologic", items: ["Headache", "Visual loss", "Sensory disturbances", "Hiccups", "Facial numbness"] },
     { category: "Migraine-Associated", items: ["Photophobia (light sensitivity)", "Phonophobia (sound sensitivity)", "Osmophobia (smell sensitivity)", "Visual aura", "Unilateral headache"] },
-    { category: "Cardiovascular", items: ["Chest pain", "Palpitations", "Shortness of breath", "Fatigue", "Syncope/near-syncope"] },
 ];
 
 const redFlagList = [
@@ -82,7 +82,6 @@ const redFlagList = [
   { id: "incoordination", label: "Incoordination" },
   { id: "lostConsciousness", label: "Loss of consciousness" },
   { id: "chestPain", label: "Chest Pain" },
-  { id: "syncopalEpisode", label: "Syncopal Episode" },
 ];
 
 const oculomotorExamQuestions = [
@@ -94,36 +93,184 @@ const oculomotorExamQuestions = [
     { id: "testOfSkew", label: "Test of Skew", options: ["Negative", "Positive (Vertical Realignment)"] },
 ];
 
+const positionalTestingQuestions = [
+    { id: "dixHallpikeLeft", label: "Dix-Hallpike Left", options: ["Not Performed", "Negative", "Positive"] },
+    { id: "dixHallpikeRight", label: "Dix-Hallpike Right", options: ["Not Performed", "Negative", "Positive"] },
+    { id: "supineRollLeft", label: "Supine Roll Test Left", options: ["Not Performed", "Negative", "Positive"] },
+    { id: "supineRollRight", label: "Supine Roll Test Right", options: ["Not Performed", "Negative", "Positive"] },
+];
+
+// Define the FormData type
+interface FormData {
+  redFlags: {
+    doubleVision: boolean;
+    slurredSpeech: boolean;
+    difficultySwallowing: boolean;
+    hiccups: boolean;
+    weaknessOrNumbness: boolean;
+    incoordination: boolean;
+    lostConsciousness: boolean;
+    chestPain: boolean;
+  };
+  hearingChanges: string;
+  hearingLoss: string;
+  hearingSide: string;
+  tinnitus: string;
+  tinnitusType: string;
+  tinnitusGradual: string;
+  audiogram: string;
+  earFullness: string;
+  earFullnessSide: string;
+  mri: boolean;
+  ctScan: boolean;
+  smoke: string;
+  drink: string;
+  onsetDate: string;
+  onsetType: string;
+  activity: string;
+  symptomType: string;
+  trigger: string;
+  worseWith: string[];
+  episodeDuration: string;
+  episodeDurationSpecific: string;
+  spontaneousVsTriggered: string;
+  dixHallpikeResult: string;
+  orthostaticVitals: string;
+  associatedSymptoms: string[];
+  oscillopsia: boolean;
+  tendencyToFall: boolean;
+  nausea: boolean;
+  vomiting: boolean;
+  orthostaticBP: string;
+  chestPainDetails: string;
+  palpitations: boolean;
+  boneConduction: boolean;
+  soundInducedVertigo: boolean;
+  pulsatileTinnitus: boolean;
+  autophony: boolean;
+  barotrauma: boolean;
+  viralIllness: boolean;
+  functionalImpairment: string;
+  visualStimuli: boolean;
+  darknessWorse: boolean;
+  unevenGroundWorse: boolean;
+  planOfCare: string;
+  treatmentManeuver: string;
+  treatmentRepetitions: string;
+  treatmentSide: string;
+  treatmentTolerance: string;
+  chartId: string;
+  oculomotorExam: {
+    spontaneousNystagmus: string;
+    gazeEvokedNystagmus: string;
+    saccadicEyeMovements: string;
+    vorCancellation: string;
+    headImpulseTest: string;
+    testOfSkew: string;
+  };
+  positionalTesting: {
+    dixHallpikeLeft: string;
+    dixHallpikeRight: string;
+    supineRollLeft: string;
+    supineRollRight: string;
+  };
+}
+
 export function EvalTab() {
   const [currentStep, setCurrentStep] = useState(0);
   
-  const [formData, setFormData] = useState({
-    redFlags: {
-      doubleVision: false,
-      slurredSpeech: false,
-      difficultySwallowing: false,
-      hiccups: false,
-      weaknessOrNumbness: false,
-      incoordination: false,
-      lostConsciousness: false,
-      chestPain: false,
-      syncopalEpisode: false,
-    },
-    hearingChanges: "", hearingLoss: "", hearingSide: "", tinnitus: "", tinnitusType: "", tinnitusGradual: "", audiogram: "", earFullness: "", earFullnessSide: "", mri: false, ctScan: false, smoke: "", drink: "", onsetDate: "", onsetType: "", activity: "", symptomType: "", trigger: "", worseWith: [] as string[], episodeDuration: "", episodeDurationSpecific: "", spontaneousVsTriggered: "", dixHallpikeResult: "", orthostaticVitals: "", associatedSymptoms: [] as string[], oscillopsia: false, tendencyToFall: false, nausea: false, vomiting: false, orthostaticBP: "", chestPainDetails: "", palpitations: false, boneConduction: false, soundInducedVertigo: false, pulsatileTinnitus: false, autophony: false, barotrauma: false, viralIllness: false, functionalImpairment: "", visualStimuli: false, darknessWorse: false, unevenGroundWorse: false,
-    planOfCare: "",
-    treatmentManeuver: "",
-    treatmentRepetitions: "1",
-    treatmentSide: "",
-    treatmentTolerance: "",
-    chartId: "",
-    oculomotorExam: {
-      spontaneousNystagmus: "", gazeEvokedNystagmus: "", saccadicEyeMovements: "", vorCancellation: "", headImpulseTest: "", testOfSkew: ""
+  // Initialize formData with localStorage if available
+  const [formData, setFormData] = useState<FormData>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('vestibularFormData');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Error parsing saved form data:', e);
+        }
+      }
     }
+    return {
+      redFlags: {
+        doubleVision: false,
+        slurredSpeech: false,
+        difficultySwallowing: false,
+        hiccups: false,
+        weaknessOrNumbness: false,
+        incoordination: false,
+        lostConsciousness: false,
+        chestPain: false,
+      },
+      hearingChanges: "", hearingLoss: "", hearingSide: "", tinnitus: "", tinnitusType: "", tinnitusGradual: "", audiogram: "", earFullness: "", earFullnessSide: "", mri: false, ctScan: false, smoke: "", drink: "", onsetDate: "", onsetType: "", activity: "", symptomType: "", trigger: "", worseWith: [] as string[], episodeDuration: "", episodeDurationSpecific: "", spontaneousVsTriggered: "", dixHallpikeResult: "", orthostaticVitals: "", associatedSymptoms: [] as string[], oscillopsia: false, tendencyToFall: false, nausea: false, vomiting: false, orthostaticBP: "", chestPainDetails: "", palpitations: false, boneConduction: false, soundInducedVertigo: false, pulsatileTinnitus: false, autophony: false, barotrauma: false, viralIllness: false, functionalImpairment: "", visualStimuli: false, darknessWorse: false, unevenGroundWorse: false,
+      planOfCare: "",
+      treatmentManeuver: "",
+      treatmentRepetitions: "1",
+      treatmentSide: "",
+      treatmentTolerance: "",
+      chartId: "",
+      oculomotorExam: {
+        spontaneousNystagmus: "", gazeEvokedNystagmus: "", saccadicEyeMovements: "", vorCancellation: "", headImpulseTest: "", testOfSkew: ""
+      },
+      positionalTesting: {
+        dixHallpikeLeft: "", dixHallpikeRight: "", supineRollLeft: "", supineRollRight: ""
+      }
+    };
   });
+  
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  // Save to localStorage whenever formData changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vestibularFormData', JSON.stringify(formData));
+    }
+  }, [formData]);
+
+  // Function to clear form data (called from parent component when logo is clicked)
+  const resetFormData = () => {
+    const initialData: FormData = {
+      redFlags: {
+        doubleVision: false,
+        slurredSpeech: false,
+        difficultySwallowing: false,
+        hiccups: false,
+        weaknessOrNumbness: false,
+        incoordination: false,
+        lostConsciousness: false,
+        chestPain: false,
+      },
+      hearingChanges: "", hearingLoss: "", hearingSide: "", tinnitus: "", tinnitusType: "", tinnitusGradual: "", audiogram: "", earFullness: "", earFullnessSide: "", mri: false, ctScan: false, smoke: "", drink: "", onsetDate: "", onsetType: "", activity: "", symptomType: "", trigger: "", worseWith: [] as string[], episodeDuration: "", episodeDurationSpecific: "", spontaneousVsTriggered: "", dixHallpikeResult: "", orthostaticVitals: "", associatedSymptoms: [] as string[], oscillopsia: false, tendencyToFall: false, nausea: false, vomiting: false, orthostaticBP: "", chestPainDetails: "", palpitations: false, boneConduction: false, soundInducedVertigo: false, pulsatileTinnitus: false, autophony: false, barotrauma: false, viralIllness: false, functionalImpairment: "", visualStimuli: false, darknessWorse: false, unevenGroundWorse: false,
+      planOfCare: "",
+      treatmentManeuver: "",
+      treatmentRepetitions: "1",
+      treatmentSide: "",
+      treatmentTolerance: "",
+      chartId: "",
+      oculomotorExam: {
+        spontaneousNystagmus: "", gazeEvokedNystagmus: "", saccadicEyeMovements: "", vorCancellation: "", headImpulseTest: "", testOfSkew: ""
+      },
+      positionalTesting: {
+        dixHallpikeLeft: "", dixHallpikeRight: "", supineRollLeft: "", supineRollRight: ""
+      }
+    };
+    setFormData(initialData);
+    setCurrentStep(0);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('vestibularFormData');
+    }
+  };
+
+  // Expose resetFormData to parent component
+  useEffect(() => {
+    (window as any).resetEvalForm = resetFormData;
+    return () => {
+      delete (window as any).resetEvalForm;
+    };
+  }, []);
 
   const generateChartId = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -131,18 +278,18 @@ export function EvalTab() {
 
   const updateFormData = (field: string, value: any, section: string | null = null) => {
     if (section) {
-      setFormData(prev => ({ ...prev, [section]: { ...(prev as any)[section], [field]: value } }));
+      setFormData((prev: FormData) => ({ ...prev, [section]: { ...(prev as any)[section], [field]: value } }));
     } else {
-      setFormData(prev => ({ ...prev, [field]: value }));
+      setFormData((prev: FormData) => ({ ...prev, [field]: value }));
     }
 
     if (field === 'planOfCare' && !formData.chartId) {
-      setFormData(prev => ({ ...prev, chartId: generateChartId() }));
+      setFormData((prev: FormData) => ({ ...prev, chartId: generateChartId() }));
     }
   };
 
   const updateArrayField = (field: string, value: string, checked: boolean) => {
-    setFormData(prev => {
+    setFormData((prev: FormData) => {
       const currentArray = (prev as any)[field] || [];
       if (checked) {
         return { ...prev, [field]: [...currentArray, value] };
@@ -173,7 +320,7 @@ export function EvalTab() {
   };
 
   const generateNarrative = () => {
-    const { redFlags, onsetType, symptomType, trigger, episodeDuration, hearingChanges, hearingLoss, hearingSide, tinnitus, tinnitusType, earFullness, associatedSymptoms, oculomotorExam, planOfCare, treatmentManeuver, treatmentRepetitions, treatmentSide, treatmentTolerance } = formData;
+    const { redFlags, onsetType, symptomType, trigger, episodeDuration, hearingChanges, hearingLoss, hearingSide, tinnitus, tinnitusType, earFullness, associatedSymptoms, oculomotorExam, positionalTesting, planOfCare, treatmentManeuver, treatmentRepetitions, treatmentSide, treatmentTolerance } = formData;
     let narrative = "Patient presenting with complaints of ";
     if (onsetType) narrative += `${onsetType.toLowerCase()} onset of `; else narrative += "(onset type) ";
     if (symptomType) narrative += `${symptomType.split(',').join(', ').toLowerCase()}. `; else narrative += "(type of symptoms). ";
@@ -189,7 +336,6 @@ export function EvalTab() {
         incoordination: "incoordination",
         lostConsciousness: "loss of consciousness",
         chestPain: "chest pain",
-        syncopalEpisode: "syncopal episode",
     };
 
     const selectedRedFlags = Object.entries(redFlags)
@@ -212,23 +358,39 @@ export function EvalTab() {
     const vestibularSymptomsList = ["Nausea", "Vomiting", "Oscillopsia (visual world moving)", "Unsteadiness walking"];
     const neurologicSymptomsList = ["Headache", "Visual loss", "Sensory disturbances", "Hiccups", "Facial numbness"];
     const migraineFeaturesList = ["Photophobia (light sensitivity)", "Phonophobia (sound sensitivity)", "Osmophobia (smell sensitivity)", "Visual aura", "Unilateral headache"];
-    const cardiovascularSymptomsList = ["Chest pain", "Palpitations", "Shortness of breath", "Fatigue", "Syncope/near-syncope"];
     const presentVestibular = vestibularSymptomsList.filter(symptom => associatedSymptoms.includes(symptom));
     const presentNeurologic = neurologicSymptomsList.filter(symptom => associatedSymptoms.includes(symptom));
     const presentMigraine = migraineFeaturesList.filter(symptom => associatedSymptoms.includes(symptom));
-    const presentCardiovascular = cardiovascularSymptomsList.filter(symptom => associatedSymptoms.includes(symptom));
     if (associatedSymptoms.length > 0) {
       narrative += "\n\nAssociated Symptoms:\n";
       if (presentVestibular.length > 0) narrative += `- Vestibular: ${presentVestibular.join(', ')}\n`;
       if (presentNeurologic.length > 0) narrative += `- Neurologic: ${presentNeurologic.join(', ')}\n`;
       if (presentMigraine.length > 0) narrative += `- Migraine-Associated: ${presentMigraine.join(', ')}\n`;
-      if (presentCardiovascular.length > 0) narrative += `- Cardiovascular: ${presentCardiovascular.join(', ')}\n`;
     }
-    const oculomotorTests = [ { label: "Spontaneous Nystagmus", value: oculomotorExam.spontaneousNystagmus }, { label: "Gaze-Evoked Nystagmus", value: oculomotorExam.gazeEvokedNystagmus }, { label: "Saccadic Eye Movements", value: oculomotorExam.saccadicEyeMovements }, { label: "VOR Cancellation", value: oculomotorExam.vorCancellation }, { label: "Head Impulse Test (HIT)", value: oculomotorExam.headImpulseTest }, { label: "Test of Skew Deviation", value: oculomotorExam.testOfSkew } ];
+    const oculomotorTests = [ 
+      { label: "Spontaneous Nystagmus", value: oculomotorExam.spontaneousNystagmus }, 
+      { label: "Gaze-Evoked Nystagmus", value: oculomotorExam.gazeEvokedNystagmus }, 
+      { label: "Saccadic Eye Movements", value: oculomotorExam.saccadicEyeMovements }, 
+      { label: "VOR Cancellation", value: oculomotorExam.vorCancellation }, 
+      { label: "Head Impulse Test (HIT)", value: oculomotorExam.headImpulseTest }, 
+      { label: "Test of Skew Deviation", value: oculomotorExam.testOfSkew }
+    ];
     const presentOculomotor = oculomotorTests.filter(test => test.value);
     if (presentOculomotor.length > 0) {
       narrative += "\n\nOculomotor Exam Findings:\n";
       presentOculomotor.forEach(test => { narrative += `- ${test.label}: ${test.value}\n`; });
+    }
+
+    const positionalTests = [
+      { label: "Dix-Hallpike Left", value: positionalTesting.dixHallpikeLeft },
+      { label: "Dix-Hallpike Right", value: positionalTesting.dixHallpikeRight },
+      { label: "Supine Roll Test Left", value: positionalTesting.supineRollLeft },
+      { label: "Supine Roll Test Right", value: positionalTesting.supineRollRight }
+    ];
+    const presentPositional = positionalTests.filter(test => test.value && test.value !== "Not Performed");
+    if (presentPositional.length > 0) {
+      narrative += "\n\nPositional Testing Results:\n";
+      presentPositional.forEach(test => { narrative += `- ${test.label}: ${test.value}\n`; });
     }
 
     if (planOfCare && planOfCareNarrativeMap[planOfCare as keyof typeof planOfCareNarrativeMap]) {
@@ -244,21 +406,27 @@ export function EvalTab() {
   };
 
   const handleNext = () => {
-    if (currentStep === 5 && formData.planOfCare !== 'peripheral_crm') {
-      setCurrentStep(7); // Skip to Narrative Summary
-    } else if (currentStep === 7) {
+    // Generate chart ID when leaving Plan of Care step
+    if (currentStep === 6) {
       if (!formData.chartId) {
-        setFormData(prev => ({ ...prev, chartId: generateChartId() }));
+        setFormData((prev: FormData) => ({ ...prev, chartId: generateChartId() }));
       }
-      setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
     }
-    else {
+
+    // Handle conditional Treatment step
+    if (currentStep === 6 && formData.planOfCare !== 'peripheral_crm') {
+      // Skip Treatment step if not BPPV
+      setCurrentStep(8); // Jump to Narrative Summary
+    } else if (currentStep === 7 && formData.planOfCare !== 'peripheral_crm') {
+      // This shouldn't happen, but just in case
+      setCurrentStep(8);
+    } else {
       setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
     }
   };
   const handleBack = () => {
-     if (currentStep === 7 && formData.planOfCare !== 'peripheral_crm') {
-      setCurrentStep(5); // Go back to Plan of Care
+    if (currentStep === 8 && formData.planOfCare !== 'peripheral_crm') {
+      setCurrentStep(6);
     } else {
       setCurrentStep(prev => Math.max(prev - 1, 0));
     }
@@ -321,13 +489,16 @@ export function EvalTab() {
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
       if (currentStep < steps.length - 1) {
-        if (currentStep === 5 && formData.planOfCare !== 'peripheral_crm') {
-          setCurrentStep(7);
-        } else if (currentStep === 7) {
+        if (currentStep === 6) {
           if (!formData.chartId) {
-            setFormData(prev => ({ ...prev, chartId: generateChartId() }));
+            setFormData((prev: FormData) => ({ ...prev, chartId: generateChartId() }));
           }
-          setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+        }
+
+        if (currentStep === 6 && formData.planOfCare !== 'peripheral_crm') {
+          setCurrentStep(8);
+        } else if (currentStep === 7 && formData.planOfCare !== 'peripheral_crm') {
+          setCurrentStep(8);
         } else {
           setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
         }
@@ -335,8 +506,8 @@ export function EvalTab() {
     },
     onSwipedRight: () => {
       if (currentStep > 0) {
-        if (currentStep === 7 && formData.planOfCare !== 'peripheral_crm') {
-          setCurrentStep(5);
+        if (currentStep === 8 && formData.planOfCare !== 'peripheral_crm') {
+          setCurrentStep(6);
         } else {
           setCurrentStep(prev => Math.max(prev - 1, 0));
         }
@@ -350,6 +521,26 @@ export function EvalTab() {
   const isMobile = window.innerWidth <= 768;
   const isAssociatedSymptomsPage = currentStep === 3;
   const shouldAllowScroll = isAssociatedSymptomsPage;
+
+  // Calculate effective progress based on whether treatment step is shown
+  const getEffectiveProgress = () => {
+    const totalSteps = steps.length;
+    const showTreatmentStep = formData.planOfCare === 'peripheral_crm';
+    
+    if (!showTreatmentStep) {
+      // If treatment step is not shown, adjust progress calculation
+      if (currentStep <= 6) {
+        // Before plan of care, normal calculation
+        return (currentStep / (totalSteps - 2)) * 100; // -2 because we skip treatment step
+      } else if (currentStep >= 8) {
+        // After treatment step (which was skipped), adjust the calculation
+        return ((currentStep - 1) / (totalSteps - 2)) * 100;
+      }
+    }
+    
+    // Normal calculation when treatment step is shown
+    return (currentStep / (totalSteps - 1)) * 100;
+  };
 
   return (
     <div 
@@ -366,7 +557,7 @@ export function EvalTab() {
       <div style={{ position: 'relative', height: '4px', backgroundColor: '#e2e8f0', marginBottom: isMobile ? '15px' : '25px', borderRadius: '2px' }}>
         <motion.div
           style={{ position: 'absolute', height: '100%', backgroundColor: '#2D3748', borderRadius: '2px' }}
-          animate={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+          animate={{ width: `${getEffectiveProgress()}%` }}
           transition={{ ease: "easeInOut", duration: 0.5 }}
         />
       </div>
@@ -452,6 +643,15 @@ export function EvalTab() {
                   <span>{flag.label}</span>
                 </label>
               ))}
+              <p style={{
+                textAlign: 'center',
+                fontSize: '14px',
+                color: '#6b7280',
+                fontStyle: 'italic',
+                margin: '20px 0 0 0'
+              }}>
+                If no red flags present then swipe or click → to continue
+              </p>
             </div>
           )}
 
@@ -541,62 +741,170 @@ export function EvalTab() {
           )}
 
           {currentStep === 5 && (
-            <div style={sectionStyle}>
-              <h3 style={{...labelStyle, fontSize: '1.1rem'}}>Plan of Care</h3>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div>
+                {positionalTestingQuestions.map(q => (
+                    <div key={q.id} style={sectionStyle}>
+                        <label style={labelStyle}>{q.label}</label>
+                        <select
+                            style={selectStyle}
+                            value={formData.positionalTesting[q.id as keyof typeof formData.positionalTesting]}
+                            onChange={(e) => updateFormData(q.id, e.target.value, 'positionalTesting')}
+                        >
+                            <option value="">Select...</option>
+                            {q.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+                ))}
+            </div>
+          )}
+
+          {currentStep === 6 && (
+            <div style={{
+              ...sectionStyle,
+              padding: window.innerWidth <= 768 ? "16px" : "20px",
+              height: window.innerWidth <= 768 ? 'calc(100vh - 200px)' : 'auto',
+              overflow: 'auto'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: window.innerWidth <= 768 ? '16px' : '20px'
+              }}>
                 {planOfCareOptions.map(option => (
-                  <label key={option.value} style={{ ...checkboxLabelStyle, alignItems: 'flex-start' }}>
+                  <label 
+                    key={option.value} 
+                    style={{ 
+                      ...checkboxLabelStyle, 
+                      alignItems: 'flex-start',
+                      padding: window.innerWidth <= 768 ? '12px' : '16px',
+                      backgroundColor: formData.planOfCare === option.value ? '#F8FAFC' : 'transparent',
+                      border: formData.planOfCare === option.value ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      marginBottom: '0'
+                    }}
+                  >
                     <input
                       type="radio"
                       name="planOfCare"
                       value={option.value}
                       checked={formData.planOfCare === option.value}
                       onChange={(e) => updateFormData('planOfCare', e.target.value)}
-                      style={{ ...checkboxStyle, marginTop: '5px' }}
+                      style={{ 
+                        ...checkboxStyle, 
+                        marginTop: '6px',
+                        marginRight: '12px',
+                        flexShrink: 0
+                      }}
                     />
-                    <span>{option.label}</span>
+                    <span style={{
+                      fontSize: window.innerWidth <= 768 ? '14px' : '15px',
+                      lineHeight: '1.5',
+                      color: '#374151'
+                    }}
+                    dangerouslySetInnerHTML={{ __html: option.label }}
+                    />
                   </label>
                 ))}
               </div>
             </div>
           )}
 
-          {currentStep === 6 && formData.planOfCare === 'peripheral_crm' && (
+          {currentStep === 7 && formData.planOfCare === 'peripheral_crm' && (
             <div>
-                <div style={sectionStyle}>
-                    <label style={labelStyle}>Treatment Maneuver</label>
-                    <OptionBubbles name="treatmentManeuver" options={treatmentManeuverOptions} value={formData.treatmentManeuver} onChange={(val) => updateFormData('treatmentManeuver', val)} />
-                </div>
-                <div style={sectionStyle}>
-                    <label style={labelStyle}>Repetitions</label>
-                    <OptionBubbles name="treatmentRepetitions" options={treatmentRepetitionOptions} value={formData.treatmentRepetitions} onChange={(val) => updateFormData('treatmentRepetitions', val)} />
-                </div>
-                 <div style={sectionStyle}>
-                    <label style={labelStyle}>Side</label>
-                    <OptionBubbles name="treatmentSide" options={treatmentSideOptions} value={formData.treatmentSide} onChange={(val) => updateFormData('treatmentSide', val)} />
-                </div>
-                <div style={sectionStyle}>
-                    <label style={labelStyle}>Patient Tolerance</label>
-                    <OptionBubbles name="treatmentTolerance" options={treatmentToleranceOptions} value={formData.treatmentTolerance} onChange={(val) => updateFormData('treatmentTolerance', val)} />
-                </div>
-            </div>
-          )}
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Treatment Maneuver</label>
+                <select
+                  style={selectStyle}
+                  value={formData.treatmentManeuver}
+                  onChange={(e) => updateFormData('treatmentManeuver', e.target.value)}
+                >
+                  <option value="">Select maneuver...</option>
+                  {treatmentManeuverOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
 
-          {currentStep === 7 && (
-             <div style={sectionStyle}>
-              <h3 style={{...labelStyle, fontSize: '1.1rem'}}>Narrative Summary</h3>
-              {formData.chartId && <p style={{fontWeight: 'bold', marginBottom: '10px'}}>Chart ID: {formData.chartId}</p>}
-              <textarea
-                readOnly
-                value={generateNarrative()}
-                style={{width: '100%', height: '400px', padding: '10px', border: '1px solid #ccc', resize: 'none' }}
-              />
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Number of Repetitions</label>
+                <select
+                  style={selectStyle}
+                  value={formData.treatmentRepetitions}
+                  onChange={(e) => updateFormData('treatmentRepetitions', e.target.value)}
+                >
+                  {treatmentRepetitionOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Treatment Side</label>
+                <select
+                  style={selectStyle}
+                  value={formData.treatmentSide}
+                  onChange={(e) => updateFormData('treatmentSide', e.target.value)}
+                >
+                  <option value="">Select side...</option>
+                  {treatmentSideOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Patient Tolerance</label>
+                <select
+                  style={selectStyle}
+                  value={formData.treatmentTolerance}
+                  onChange={(e) => updateFormData('treatmentTolerance', e.target.value)}
+                >
+                  <option value="">Select tolerance...</option>
+                  {treatmentToleranceOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 
           {currentStep === 8 && (
+             <div style={sectionStyle}>
+              {formData.chartId && <p style={{fontWeight: 'bold', marginBottom: '15px'}}>Chart ID: {formData.chartId}</p>}
+              <textarea
+                readOnly
+                value={generateNarrative()}
+                style={{
+                  width: '100%', 
+                  height: '400px', 
+                  padding: '15px', 
+                  border: '1px solid #E2E8F0', 
+                  borderRadius: '8px',
+                  resize: 'none', 
+                  marginBottom: '20px',
+                  fontSize: '14px',
+                  lineHeight: '1.5',
+                  fontFamily: 'inherit',
+                  backgroundColor: '#FAFAFA',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <p style={{
+                textAlign: 'center',
+                fontSize: '14px',
+                color: '#6b7280',
+                fontStyle: 'italic',
+                margin: '0'
+              }}>
+                Swipe to choose export method
+              </p>
+            </div>
+          )}
+
+          {currentStep === 9 && (
             <div style={sectionStyle}>
-              <h3 style={{...labelStyle, fontSize: '1.1rem'}}>Conclusion</h3>
               {formData.chartId && <p style={{fontWeight: 'bold', marginBottom: '20px', textAlign: 'center'}}>Chart ID: {formData.chartId}</p>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <button

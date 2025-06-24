@@ -68,6 +68,12 @@ export default function VestibularScreeningApp() {
   const handleConfirmReset = () => {
     setShowConfirmDialog(false);
     setActiveTab("questionnaire");
+    
+    // Call the reset function from EvalTab if it exists
+    if (typeof window !== 'undefined' && (window as any).resetEvalForm) {
+      (window as any).resetEvalForm();
+    }
+    
     setEvalKey(prev => prev + 1); // Force EvalTab to re-render with fresh state
     setAppState('options');
   };
