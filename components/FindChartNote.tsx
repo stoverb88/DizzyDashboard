@@ -68,44 +68,63 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
         height: '100%',
         padding: '20px',
+        paddingTop: '40px',
         maxWidth: '600px',
-        margin: '0 auto'
+        margin: '0 auto',
+        boxSizing: 'border-box',
+        width: '100%'
       }}
     >
-      <button
-        onClick={onBack}
-        style={{
-          ...buttonStyle,
-          backgroundColor: '#E2E8F0',
-          color: '#2D3748',
-          alignSelf: 'flex-start',
-          marginBottom: '20px'
-        }}
-      >
-        ← Back
-      </button>
-
       <div style={{
         backgroundColor: '#fff',
-        padding: '40px',
+        padding: '30px',
         borderRadius: '12px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
         width: '100%',
-        border: '1px solid #E2E8F0'
+        border: '1px solid #E2E8F0',
+        boxSizing: 'border-box'
       }}>
-        <h2 style={{
-          fontSize: '1.8rem',
-          fontWeight: '700',
-          color: '#1A202C',
-          marginBottom: '8px',
-          textAlign: 'center'
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '8px'
         }}>
-          Find My Chart Note
-        </h2>
+          <button
+            onClick={onBack}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '32px',
+              fontWeight: '900',
+              cursor: 'pointer',
+              color: '#1e293b',
+              padding: '8px',
+              borderRadius: '6px',
+              transition: 'all 0.2s',
+              lineHeight: 1,
+              marginRight: '15px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f1f5f9';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            ←
+          </button>
+          <h2 style={{
+            fontSize: '1.8rem',
+            fontWeight: '700',
+            color: '#1A202C',
+            margin: 0,
+            flex: 1
+          }}>
+            Find My Chart Note
+          </h2>
+        </div>
         
         <p style={{
           color: '#718096',
@@ -229,7 +248,9 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
                 fontFamily: 'inherit',
                 fontSize: '0.95rem',
                 lineHeight: '1.6',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                boxSizing: 'border-box',
+                outline: 'none'
               }}
             />
           </motion.div>

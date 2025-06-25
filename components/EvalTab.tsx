@@ -18,7 +18,11 @@ const steps = [
 
 const yesNoOptions = [ { value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
 const sideOptions = [ { value: "Left", label: "Left" }, { value: "Right", label: "Right" }, { value: "Bilateral", label: "Bilateral" }];
-const symptomTypeOptions = [ { value: "Vertigo (spinning)", label: "Vertigo (spinning)" }, { value: "Faint (light head/pass out)", label: "Faint (light head/pass out)" }, { value: "Imbalance", label: "Imbalance" }, { value: "Oscillopsia", label: "Oscillopsia" }];
+const symptomTypeOptions = [ 
+  { value: "Vertigo (spinning)", label: "Vertigo (spinning)" }, 
+  { value: "Faint (Pre-Syncope)", label: "Faint (Pre-Syncope)" }, 
+  { value: "Imbalance", label: "Imbalance" }
+];
 const durationOptions = [ { value: "seconds", label: "Seconds" }, { value: "minutes", label: "Minutes" }, { value: "hours", label: "Hours" }, { value: "days", label: "Days" }, { value: "weeks", label: "Weeks" }];
 const onsetOptions = [ { value: "Abrupt", label: "Abrupt" }, { value: "Gradual", label: "Gradual" }];
 const triggerOptions = [ { value: "Spontaneous", label: "Spontaneous" }, { value: "Positional Changes", label: "Positional Changes" }, { value: "Head Motion", label: "Head Motion" }, { value: "Pressure Changes", label: "Pressure Changes" }];
@@ -325,7 +329,25 @@ export function EvalTab() {
     if (onsetType) narrative += `${onsetType.toLowerCase()} onset of `; else narrative += "(onset type) ";
     if (symptomType) narrative += `${symptomType.split(',').join(', ').toLowerCase()}. `; else narrative += "(type of symptoms). ";
     if (trigger) narrative += `These symptoms are triggered by ${trigger.split(',').join(', ').toLowerCase()} `; else narrative += "These symptoms are triggered by (trigger) ";
-    if (episodeDuration) narrative += `and last for ${episodeDuration.toLowerCase()}.`; else narrative += "and last for (episode duration).";
+    
+    // Handle multi-select episode duration
+    if (episodeDuration) {
+      const durations = episodeDuration.split(',');
+      if (durations.length > 1) {
+        // Create range from first to last selected duration
+        const durationOrder = ['seconds', 'minutes', 'hours', 'days', 'weeks'];
+        const selectedIndices = durations.map(d => durationOrder.indexOf(d.toLowerCase())).filter(i => i !== -1).sort((a, b) => a - b);
+        if (selectedIndices.length > 1) {
+          narrative += `and last for ${durationOrder[selectedIndices[0]]} to ${durationOrder[selectedIndices[selectedIndices.length - 1]]}.`;
+        } else {
+          narrative += `and last for ${durations.join(', ').toLowerCase()}.`;
+        }
+      } else {
+        narrative += `and last for ${episodeDuration.toLowerCase()}.`;
+      }
+    } else {
+      narrative += "and last for (episode duration).";
+    }
     
     const redFlagLabels = {
         doubleVision: "double vision",
@@ -671,7 +693,7 @@ export function EvalTab() {
               </div>
                <div style={sectionStyle}>
                 <label style={labelStyle}>Episode Duration</label>
-                <OptionBubbles name="episodeDuration" options={durationOptions} value={formData.episodeDuration} onChange={(val) => updateFormData('episodeDuration', val)} />
+                <OptionBubbles name="episodeDuration" options={durationOptions} value={formData.episodeDuration} onChange={(val) => updateFormData('episodeDuration', val)} multiSelect />
               </div>
             </div>
           )}
