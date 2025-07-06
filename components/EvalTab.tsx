@@ -224,8 +224,21 @@ export function EvalTab() {
   
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Mobile detection with proper hydration handling
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Save to localStorage whenever formData changes
   useEffect(() => {
@@ -457,7 +470,7 @@ export function EvalTab() {
   const sectionStyle = { 
     backgroundColor: "#fff", 
     border: "1px solid #E2E8F0", 
-    padding: window.innerWidth <= 768 ? "12px" : "24px", 
+    padding: isMobile ? "12px" : "24px", 
     marginBottom: "8px" 
   };
   const labelStyle = { fontWeight: '600', color: '#334155', marginBottom: '6px', display: 'block' };
@@ -540,7 +553,6 @@ export function EvalTab() {
     delta: 50,
   });
 
-  const isMobile = window.innerWidth <= 768;
   const isAssociatedSymptomsPage = currentStep === 3;
   const shouldAllowScroll = isAssociatedSymptomsPage;
 
@@ -568,15 +580,22 @@ export function EvalTab() {
     <div 
       {...swipeHandlers} 
       style={{ 
-        minHeight: '100vh', 
-        maxHeight: isMobile && !shouldAllowScroll ? '100vh' : 'none',
-        overflow: isMobile && !shouldAllowScroll ? 'hidden' : 'auto',
+        height: isMobile ? 'calc(100vh - 130px)' : 'calc(100vh - 154px)', // Subtract padding from viewport height
         display: 'flex', 
-        flexDirection: 'column' 
+        flexDirection: 'column',
+        overflow: 'hidden',
+        padding: isMobile ? "20px 20px 90px 20px" : "32px 32px 90px 32px"
       }}
     >
       {/* Progress Bar */}
-      <div style={{ position: 'relative', height: '4px', backgroundColor: '#e2e8f0', marginBottom: isMobile ? '15px' : '25px', borderRadius: '2px' }}>
+      <div style={{ 
+        position: 'relative', 
+        height: '4px', 
+        backgroundColor: '#e2e8f0', 
+        marginBottom: isMobile ? '15px' : '25px', 
+        borderRadius: '2px',
+        flexShrink: 0
+      }}>
         <motion.div
           style={{ position: 'absolute', height: '100%', backgroundColor: '#2D3748', borderRadius: '2px' }}
           animate={{ width: `${getEffectiveProgress()}%` }}
@@ -592,12 +611,19 @@ export function EvalTab() {
           exit={{ x: -300, opacity: 0 }}
           transition={{ duration: 0.3 }}
           style={{ 
-            flex: 1, 
-            minHeight: '400px',
-            overflow: isMobile && !shouldAllowScroll ? 'hidden' : 'auto'
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMobile ? '12px' : '20px' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginBottom: isMobile ? '12px' : '20px',
+            flexShrink: 0
+          }}>
             <h2 style={{color: '#1e293b', margin: 0, flex: 1, fontSize: isMobile ? '1.3rem' : '1.5rem'}}>{steps[currentStep]}</h2>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <button
@@ -656,6 +682,12 @@ export function EvalTab() {
               </button>
             </div>
           </div>
+
+          <div style={{
+            flex: 1,
+            overflow: 'auto',
+            paddingRight: isMobile ? '2px' : '4px'
+          }}>
 
           {currentStep === 0 && (
              <div style={sectionStyle}>
@@ -781,16 +813,11 @@ export function EvalTab() {
           )}
 
           {currentStep === 6 && (
-            <div style={{
-              ...sectionStyle,
-              padding: window.innerWidth <= 768 ? "16px" : "20px",
-              height: window.innerWidth <= 768 ? 'calc(100vh - 200px)' : 'auto',
-              overflow: 'auto'
-            }}>
+            <div>
               <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column',
-                gap: window.innerWidth <= 768 ? '16px' : '20px'
+                gap: isMobile ? '16px' : '20px'
               }}>
                 {planOfCareOptions.map(option => (
                   <label 
@@ -798,7 +825,7 @@ export function EvalTab() {
                     style={{ 
                       ...checkboxLabelStyle, 
                       alignItems: 'flex-start',
-                      padding: window.innerWidth <= 768 ? '12px' : '16px',
+                      padding: isMobile ? '12px' : '16px',
                       backgroundColor: formData.planOfCare === option.value ? '#F8FAFC' : 'transparent',
                       border: formData.planOfCare === option.value ? '2px solid #3B82F6' : '1px solid #E2E8F0',
                       borderRadius: '8px',
@@ -821,7 +848,7 @@ export function EvalTab() {
                       }}
                     />
                     <span style={{
-                      fontSize: window.innerWidth <= 768 ? '14px' : '15px',
+                      fontSize: isMobile ? '14px' : '15px',
                       lineHeight: '1.5',
                       color: '#374151'
                     }}
@@ -900,7 +927,7 @@ export function EvalTab() {
                 value={generateNarrative()}
                 style={{
                   width: '100%', 
-                  height: '400px', 
+                  height: isMobile ? '300px' : '400px', 
                   padding: '15px', 
                   border: '1px solid #E2E8F0', 
                   borderRadius: '8px',
@@ -979,6 +1006,7 @@ export function EvalTab() {
             </div>
           )}
 
+          </div>
         </motion.div>
       </AnimatePresence>
     </div>

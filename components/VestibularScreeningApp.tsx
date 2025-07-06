@@ -119,8 +119,11 @@ export default function VestibularScreeningApp() {
 
   const dynamicCardStyle: React.CSSProperties = { ...cardStyle };
   if (appState === 'eval') {
-    dynamicCardStyle.overflowY = 'auto';
-    if (activeTab !== 'oculomotor' && activeTab !== 'maneuvers') {
+    // Only force overflow for tabs that need it, not for EvalTab
+    if (activeTab !== 'questionnaire') {
+      dynamicCardStyle.overflowY = 'auto';
+    }
+    if (activeTab !== 'oculomotor' && activeTab !== 'maneuvers' && activeTab !== 'questionnaire') {
       dynamicCardStyle.padding = isMobile ? "20px 20px 90px 20px" : "32px 32px 90px 32px";
     } else {
       dynamicCardStyle.paddingBottom = "90px";
