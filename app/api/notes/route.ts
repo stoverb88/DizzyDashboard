@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Store with 24-hour expiration (86400 seconds)
-    await kv.setex(`note:${chartId}`, 86400, JSON.stringify(noteData))
+    await kv.setex(`vestibular:note:${chartId}`, 86400, JSON.stringify(noteData))
 
     return NextResponse.json({ 
       success: true, 

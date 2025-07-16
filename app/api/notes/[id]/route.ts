@@ -20,7 +20,7 @@ export async function GET(
       )
     }
 
-    const noteDataRaw = await kv.get(`note:${chartId}`)
+    const noteDataRaw = await kv.get(`vestibular:note:${chartId}`)
     
     if (!noteDataRaw) {
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function GET(
     
     if (now - noteData.createdAt > twentyFourHours) {
       // Clean up expired note
-      await kv.del(`note:${chartId}`)
+      await kv.del(`vestibular:note:${chartId}`)
       return NextResponse.json(
         { error: 'Chart note has expired.' },
         { status: 404 }
