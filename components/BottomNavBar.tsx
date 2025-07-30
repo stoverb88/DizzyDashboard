@@ -15,7 +15,7 @@ interface BottomNavBarProps {
 export function BottomNavBar({ tabs, activeTab, setActiveTab }: BottomNavBarProps) {
   const navStyle: React.CSSProperties = {
     display: 'flex',
-    justifyContent: 'space-around',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
     backgroundColor: '#ffffff',
     boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)',
@@ -24,6 +24,8 @@ export function BottomNavBar({ tabs, activeTab, setActiveTab }: BottomNavBarProp
     width: '100%',
     height: '70px',
     zIndex: 1000,
+    paddingLeft: '0',
+    paddingRight: '0'
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -38,7 +40,9 @@ export function BottomNavBar({ tabs, activeTab, setActiveTab }: BottomNavBarProp
     flex: 1,
     height: '100%',
     transition: 'color 0.2s ease-in-out',
-    fontSize: '12px'
+    fontSize: '12px',
+    padding: '8px 4px',
+    maxWidth: '80px'
   };
 
   const activeButtonStyle: React.CSSProperties = {
@@ -48,9 +52,9 @@ export function BottomNavBar({ tabs, activeTab, setActiveTab }: BottomNavBarProp
   };
 
   const iconContainerStyle: React.CSSProperties = {
-    marginBottom: '4px',
-    height: '28px',
-    width: '28px',
+    marginBottom: '2px',
+    height: '24px',
+    width: '24px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center'

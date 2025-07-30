@@ -25,6 +25,7 @@ export default function VestibularScreeningApp() {
   const [appState, setAppState] = useState<'splash' | 'options' | 'eval' | 'find-chart'>('splash');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [evalKey, setEvalKey] = useState(0); // Key to force EvalTab re-render
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -36,8 +37,93 @@ export default function VestibularScreeningApp() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Fullscreen change detection
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Pinch-to-exit fullscreen gesture detection
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    let touches: TouchList | null = null;
+    let initialDistance = 0;
+    let gestureStartTime = 0;
+
+    const getTouchDistance = (touches: TouchList): number => {
+      if (touches.length !== 2) return 0;
+      const touch1 = touches[0];
+      const touch2 = touches[1];
+      return Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) + 
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        touches = e.touches;
+        initialDistance = getTouchDistance(e.touches);
+        gestureStartTime = Date.now();
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touches && initialDistance > 0) {
+        const currentDistance = getTouchDistance(e.touches);
+        const distanceChange = initialDistance - currentDistance;
+        const timeElapsed = Date.now() - gestureStartTime;
+        
+        // Detect pinch-in gesture: fingers moving closer together
+        // Thresholds: minimum 50px decrease in distance, minimum 200ms gesture duration
+        if (distanceChange > 50 && timeElapsed > 200) {
+          // Exit fullscreen
+          if (document.exitFullscreen) {
+            document.exitFullscreen().catch(err => {
+              console.error('Error exiting fullscreen:', err);
+            });
+          }
+          // Reset gesture tracking
+          touches = null;
+          initialDistance = 0;
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      touches = null;
+      initialDistance = 0;
+      gestureStartTime = 0;
+    };
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isFullscreen]);
+
   const handleSplashDismiss = () => {
-    if (document.documentElement.requestFullscreen) {
+    // Only request fullscreen if not already in fullscreen
+    if (!isFullscreen && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(err => {
         console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
       });
@@ -46,7 +132,27 @@ export default function VestibularScreeningApp() {
   };
 
   const handleStartEval = () => {
+    // Clear all evaluation-related localStorage data directly
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('vestibularFormData');
+      localStorage.removeItem('evalCurrentStep');
+      localStorage.removeItem('evalHasReset');
+    }
+    
+    // Force EvalTab to re-render with fresh state
+    setEvalKey(prev => prev + 1);
+    
+    // Reset active tab to start of evaluation
+    setActiveTab("questionnaire");
+    
     setAppState('eval');
+    
+    // Small delay to ensure localStorage is cleared before calling reset function
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && (window as any).resetEvalForm) {
+        (window as any).resetEvalForm();
+      }
+    }, 50);
   };
 
   const handleFindChart = () => {
@@ -119,14 +225,25 @@ export default function VestibularScreeningApp() {
 
   const dynamicCardStyle: React.CSSProperties = { ...cardStyle };
   if (appState === 'eval') {
+    // Calculate available height considering header and bottom nav
+    const headerHeight = isMobile ? 75 : 85; // Approximate header height
+    const bottomNavHeight = 70; // Bottom navigation height
+    const availableHeight = `calc(100vh - ${headerHeight}px - ${bottomNavHeight}px)`;
+    
+    dynamicCardStyle.height = availableHeight;
+    dynamicCardStyle.maxHeight = availableHeight;
+    
     // Only force overflow for tabs that need it, not for EvalTab
     if (activeTab !== 'questionnaire') {
       dynamicCardStyle.overflowY = 'auto';
+    } else {
+      // Ensure EvalTab doesn't scroll vertically
+      dynamicCardStyle.overflowY = 'hidden';
     }
     if (activeTab !== 'oculomotor' && activeTab !== 'maneuvers' && activeTab !== 'questionnaire') {
-      dynamicCardStyle.padding = isMobile ? "20px 20px 90px 20px" : "32px 32px 90px 32px";
+      dynamicCardStyle.padding = isMobile ? "20px 20px 20px 20px" : "32px 32px 20px 32px";
     } else {
-      dynamicCardStyle.paddingBottom = "90px";
+      dynamicCardStyle.paddingBottom = "20px";
     }
   } else {
     dynamicCardStyle.overflowY = 'hidden';

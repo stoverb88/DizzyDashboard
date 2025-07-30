@@ -83,8 +83,9 @@ export function ManeuversTab() {
               onClick={() => setShowSimulation(true)}
               style={{
                 ...buttonStyle,
-                backgroundColor: '#059669',
-                boxShadow: '0 4px 15px rgba(5, 150, 105, 0.4)',
+                backgroundColor: '#2D3748',
+                color: 'white',
+                boxShadow: '0 4px 15px rgba(45, 55, 72, 0.4)',
                 fontSize: '14px',
                 padding: '10px 20px'
               }}

@@ -314,7 +314,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         if (beta > 20) beta = 20    // Prevent extreme backward tilt
         
         // Smooth the orientation changes
-        const smoothingFactor = 0.85 // Increased smoothing
+        const smoothingFactor = 0.3 // Decreased smoothing for more responsive control
         const newBeta = prev.beta * smoothingFactor + beta * (1 - smoothingFactor)
         const newGamma = prev.gamma * smoothingFactor + gamma * (1 - smoothingFactor)
         
@@ -393,7 +393,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       }
 
       // Convert device orientation to gravity vector
-      const gravityStrength = 0.02  // Further reduced for viscous fluid simulation - like otoconia in endolymph
+      const gravityStrength = 0.06  // Increased for more responsive particle movement - like otoconia in endolymph
       
       // Detect if device is roughly horizontal
       const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
@@ -412,9 +412,9 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Apply lighter damping to reduce sticking - slightly reduced for better mobility
-      newVx *= 0.999  // Reduced from 0.998 to maintain more momentum
-      newVy *= 0.999
+      // Apply increased damping for more viscous fluid behavior
+      newVx *= 0.9  // Increased friction for more realistic endolymph viscosity
+      newVy *= 0.9
 
       // Predict new position
       let newX = particle.x + newVx

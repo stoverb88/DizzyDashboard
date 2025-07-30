@@ -49,12 +49,12 @@ export function OptionBubbles({ options, value, onChange, name, multiSelect = fa
             <span style={{
                 width: "16px",
                 height: "16px",
-                border: `1px solid ${isSelected ? '#7C3AED' : '#D1D5DB'}`,
+                border: `1px solid ${isSelected ? '#3B82F6' : '#D1D5DB'}`,
                 borderRadius: multiSelect ? '4px' : '50%', // Rounded square for checkbox, circle for radio
                 marginRight: "8px",
                 display: 'inline-block',
                 position: 'relative',
-                backgroundColor: isSelected ? '#7C3AED' : 'white',
+                backgroundColor: isSelected ? '#3B82F6' : 'white',
                 transition: 'all 0.2s ease',
             }}>
               {isSelected && (
