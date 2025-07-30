@@ -2183,8 +2183,8 @@ export function EvalTab() {
                   transition: 'background-color 0.2s ease',
                   outline: 'none'
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#1D4ED8'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#3B82F6'}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1D4ED8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
               >
                 I Understand & Acknowledge
               </button>
