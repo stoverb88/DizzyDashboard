@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSwipeable } from 'react-swipeable';
 import { OptionBubbles } from "./ui/OptionBubbles";
 import { CustomDropdown } from "./ui/CustomDropdown";
+import { useDebounce } from "../hooks/useDebounce";
+import { useEvalContext } from "../contexts/EvalContext";
 
 const steps = [
   "Red Flag Screening",
@@ -334,6 +336,7 @@ const stripDescriptors = (text: string): string => {
 };
 
 export function EvalTab() {
+  const { setResetFunction } = useEvalContext();
   const [currentStep, setCurrentStep] = useState(() => {
     // Load saved step position from localStorage (for seamless tab switching)
     if (typeof window !== 'undefined') {
@@ -406,38 +409,41 @@ export function EvalTab() {
   const [isMobile, setIsMobile] = useState(false);
   const [activeSection, setActiveSection] = useState<'summary' | 'references'>('summary');
 
+  // Debounce formData to prevent excessive localStorage writes (500ms delay)
+  const debouncedFormData = useDebounce(formData, 500);
+
+  // Debounce currentStep (immediate for better UX, but still prevents race conditions)
+  const debouncedCurrentStep = useDebounce(currentStep, 100);
+
+  // Debounce hasReset (immediate for critical state)
+  const debouncedHasReset = useDebounce(hasReset, 100);
+
   // Mobile detection with proper hydration handling
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Save to localStorage whenever formData changes
+  // Consolidated localStorage save with debouncing to prevent race conditions
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('vestibularFormData', JSON.stringify(formData));
+      try {
+        // Batch all localStorage writes together
+        localStorage.setItem('vestibularFormData', JSON.stringify(debouncedFormData));
+        localStorage.setItem('evalCurrentStep', debouncedCurrentStep.toString());
+        localStorage.setItem('evalHasReset', debouncedHasReset.toString());
+      } catch (error) {
+        console.error('Failed to save to localStorage:', error);
+        // Could add user notification here if needed
+      }
     }
-  }, [formData]);
-
-  // Save currentStep to localStorage for seamless tab switching
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('evalCurrentStep', currentStep.toString());
-    }
-  }, [currentStep]);
-
-  // Save hasReset state to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('evalHasReset', hasReset.toString());
-    }
-  }, [hasReset]);
+  }, [debouncedFormData, debouncedCurrentStep, debouncedHasReset]);
 
   // Function to clear form data (called from parent component when logo is clicked)
   const resetFormData = () => {
@@ -497,13 +503,10 @@ export function EvalTab() {
     }
   }, [currentStep, hasReset, hasSeenHipaaAfterReset]);
 
-  // Expose resetFormData to parent component
+  // Register resetFormData with context so parent components can call it
   useEffect(() => {
-    (window as any).resetEvalForm = resetFormData;
-    return () => {
-      delete (window as any).resetEvalForm;
-    };
-  }, []);
+    setResetFunction(resetFormData);
+  }, [setResetFunction]);
 
   const generateChartId = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();

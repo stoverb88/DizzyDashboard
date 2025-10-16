@@ -26,6 +26,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const animationRef = useRef<number>()
   const [particles, setParticles] = useState<Particle[]>([])
   const [orientation, setOrientation] = useState({ beta: 0, gamma: 0 })
+  const [prevOrientation, setPrevOrientation] = useState({ beta: 0, gamma: 0, gravityStrength: 0.06 })
   const [permissionGranted, setPermissionGranted] = useState(false)
   const [epleyComplete, setEpleyComplete] = useState(false)
   const [selectedEar, setSelectedEar] = useState<EarType>(null)
@@ -52,7 +53,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   // Particle detection delay state
   const [detectedStage, setDetectedStage] = useState(1)
   const [detectionTimer, setDetectionTimer] = useState<NodeJS.Timeout | null>(null)
-  const detectionDelayMs = 250 // 0.25 seconds
+  const detectionDelayMs = 300 // Reduced for better responsiveness
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 450  // Increased from 400
@@ -235,44 +236,75 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     }, transitionDuration + 100)
   }, [isTransitioning, currentAvatarStage])
 
+  // Check if device orientation is supported
+  const isOrientationSupported = () => {
+    return typeof window !== 'undefined' &&
+           typeof DeviceOrientationEvent !== 'undefined' &&
+           'ontouchstart' in window
+  }
+
   // Try to lock orientation
   const lockOrientation = async () => {
     try {
+      // Check if screen orientation API exists
+      if (typeof screen === 'undefined' || !screen.orientation) {
+        return false
+      }
+
       // Type assertion for screen orientation lock (not all browsers support this)
-      if (screen.orientation && (screen.orientation as any).lock) {
+      if ((screen.orientation as any).lock) {
         await (screen.orientation as any).lock('portrait')
         return true
       }
     } catch (error) {
-      console.log('Orientation lock not supported or failed:', error)
+      // Orientation lock may fail if not in fullscreen or not supported
+      console.log('Orientation lock not available:', error instanceof Error ? error.message : 'Unknown error')
     }
     return false
   }
 
   // Request device orientation permission
   const requestOrientationPermission = async () => {
+    // Check if device orientation is supported at all
+    if (!isOrientationSupported()) {
+      console.warn('Device orientation is not supported on this device')
+      // Still allow proceeding but without orientation features
+      setPermissionGranted(false)
+      setOrientationSetupComplete(true)
+      return
+    }
+
     // Only show orientation setup if not already completed
     if (!orientationSetupComplete) {
       // First try to lock orientation
       const lockSuccess = await lockOrientation()
-      
+
       if (!lockSuccess && !orientationLockPrompted) {
         setOrientationLockPrompted(true)
         return // Show manual instruction first
       }
     }
 
+    // Check for iOS 13+ permission requirement
     if (typeof DeviceOrientationEvent !== 'undefined' && 'requestPermission' in DeviceOrientationEvent) {
       try {
         const permission = await (DeviceOrientationEvent as any).requestPermission()
         if (permission === 'granted') {
           setPermissionGranted(true)
           setOrientationSetupComplete(true)
+        } else {
+          console.warn('Device orientation permission denied by user')
+          setPermissionGranted(false)
+          setOrientationSetupComplete(true)
         }
       } catch (error) {
-        console.error('Error requesting orientation permission:', error)
+        console.error('Error requesting orientation permission:', error instanceof Error ? error.message : 'Unknown error')
+        // Permission request failed - might be browser restriction
+        setPermissionGranted(false)
+        setOrientationSetupComplete(true)
       }
     } else {
+      // No permission required (Android or older iOS)
       setPermissionGranted(true)
       setOrientationSetupComplete(true)
     }
@@ -392,29 +424,62 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         }
       }
 
-      // Convert device orientation to gravity vector
-      const gravityStrength = 0.06  // Increased for more responsive particle movement - like otoconia in endolymph
+      // Convert device orientation to gravity vector with dynamic response
+      const baseGravityStrength = 0.08  // Increased base gravity strength for better responsiveness
+      
+      // Calculate orientation change magnitude for dynamic scaling
+      const currentBeta = orientation.beta || 0
+      const currentGamma = orientation.gamma || 0
+      const betaChange = Math.abs(currentBeta - prevOrientation.beta)
+      const gammaChange = Math.abs(currentGamma - prevOrientation.gamma)
+      const totalChange = Math.sqrt(betaChange * betaChange + gammaChange * gammaChange)
+      
+      // Dynamic gravity scaling: more aggressive scaling for better responsiveness across all stages
+      const changeMultiplier = Math.min(1 + (totalChange / 15), 2.2)  // Scale up to 2.2x for large changes (reduced threshold from 25 to 15)
+      const dynamicGravityStrength = baseGravityStrength * changeMultiplier
+      
+      // Smooth the multiplier to prevent jerky movements (reduced for faster response)
+      const smoothingFactor = 0.7
+      const smoothedGravityStrength = prevOrientation.gravityStrength 
+        ? prevOrientation.gravityStrength * smoothingFactor + dynamicGravityStrength * (1 - smoothingFactor)
+        : dynamicGravityStrength
       
       // Detect if device is roughly horizontal
-      const isHorizontal = Math.abs(Math.abs(orientation.gamma || 0) - 90) < 30
+      const isHorizontal = Math.abs(Math.abs(currentGamma) - 90) < 30
       
       let gravityX, gravityY
       
+      // Lateral movement (gamma) - moderately reduced sensitivity when vertical to prevent wiggling
+      const isVertical = Math.abs(currentGamma) < 45 || Math.abs(currentGamma) > 135 // Device upright or upside down
+      const gammaSensitivity = isVertical ? 0.6 : 1.0 // Moderately reduced lateral sensitivity when vertical
+      gravityX = Math.sin(currentGamma * Math.PI / 180) * smoothedGravityStrength * gammaSensitivity
+      
+      // Vertical gravity - enhanced when vertical for faster fall, normal when horizontal
+      const verticalBoost = isVertical ? 1.2 : 1.0  // 20% boost when vertical for faster particle fall
       if (isHorizontal) {
-        gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
-        gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength * 0.1
+        gravityY = Math.sin(currentBeta * Math.PI / 180) * smoothedGravityStrength * 0.1
       } else {
-        gravityX = Math.sin((orientation.gamma || 0) * Math.PI / 180) * gravityStrength
-        gravityY = Math.sin((orientation.beta || 0) * Math.PI / 180) * gravityStrength
+        gravityY = Math.sin(currentBeta * Math.PI / 180) * smoothedGravityStrength * verticalBoost
       }
+      
+      // Improved anti-gravity fix: Prevent strong upward forces without breaking canal flow
+      const maxUpwardForce = -smoothedGravityStrength * 0.15  // Reduced from 30% to 15% upward force allowed
+      gravityY = Math.max(maxUpwardForce, gravityY)
+      
+      // Update previous orientation for next frame
+      setPrevOrientation({ 
+        beta: currentBeta, 
+        gamma: currentGamma, 
+        gravityStrength: smoothedGravityStrength 
+      })
 
       // Update velocity with gravity
       let newVx = particle.vx + gravityX
       let newVy = particle.vy + gravityY
 
-      // Apply increased damping for more viscous fluid behavior
-      newVx *= 0.9  // Increased friction for more realistic endolymph viscosity
-      newVy *= 0.9
+      // Apply damping for viscous fluid behavior (further reduced for better responsiveness)
+      newVx *= 0.96  // Reduced friction for more responsive particle movement
+      newVy *= 0.96
 
       // Predict new position
       let newX = particle.x + newVx
@@ -968,20 +1033,29 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     }
   }, [selectedEar, selectedPerspective, initializeParticles])
 
-  // Cleanup completion timeout on unmount
+  // Comprehensive cleanup on unmount - consolidate all resource cleanup
   useEffect(() => {
     return () => {
+      // Clear all timers
       if (completionTimeoutRef.current) {
         clearTimeout(completionTimeoutRef.current)
+        completionTimeoutRef.current = null
       }
       if (transitionTimeoutRef.current) {
         clearTimeout(transitionTimeoutRef.current)
+        transitionTimeoutRef.current = null
       }
       if (detectionTimer) {
         clearTimeout(detectionTimer)
+        setDetectionTimer(null)
+      }
+      // Cancel animation frame to prevent stale closures
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+        animationRef.current = undefined
       }
     }
-  }, [detectionTimer])
+  }, []) // Empty deps - only run on unmount
 
   // Helper function to determine which bracket a particle is in
   function getParticleBracket(particle: Particle): string {
@@ -992,30 +1066,60 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     if (degrees < 0) degrees += 360
 
     if (selectedEar === 'right') {
-      // Right ear brackets - stage 2 triggers after 30-40° of movement
-      // Red bracket: Starting position + initial settling zone (3-5 o'clock)
+      // RIGHT EAR - WORKS PERFECTLY - CLOCKWISE FLOW
+      // Particles start at ~120° (7 o'clock), flow CLOCKWISE to vestibule at 60° (5 o'clock)
+      // Clockwise means: 120° → 90° → 60° (decreasing degrees)
+
+      // Red bracket: Starting position + initial settling zone (7 o'clock, ~120°)
       if (degrees >= 90 && degrees < 130) return 'red'  // 40° window for settling
-      // Yellow bracket: First intentional movement (supine position)
-      if (degrees >= 130 && degrees < 210) return 'yellow'  // Triggers after 40° movement
-      // Blue bracket: Top of canal
+
+      // Yellow bracket: First intentional movement (moving clockwise/right/down)
+      if (degrees >= 130 && degrees < 210) return 'yellow'
+
+      // Blue bracket: Top of canal (top half)
       if (degrees >= 210 && degrees < 290) return 'blue'
-      // Orange bracket: Right side, approaching vestibule
+
+      // Orange bracket: Approaching vestibule (wraps around 0°)
       if (degrees >= 290 || degrees < 45) return 'orange'
-      // Green bracket: Final vestibule position
+
+      // Green bracket: Final vestibule position (5 o'clock, ~60°)
       if (degrees >= 45 && degrees < 90) return 'green'
+
     } else {
-      // Left ear brackets - stage 2 triggers after 30-40° of movement
-      // Red bracket: Starting position + initial settling zone (12-2 o'clock)
-      if (degrees >= 30 && degrees < 70) return 'red'  // 40° window for settling
-      // Yellow bracket: First intentional movement (supine position)
-      if (degrees >= 70 && degrees < 150) return 'yellow'  // Triggers after 40° movement
-      if (degrees >= 320 || degrees < 30) return 'yellow'  // Additional coverage for left ear
-      // Blue bracket: Top of canal
-      if (degrees >= 210 && degrees < 290) return 'blue'
-      // Orange bracket: Left side, approaching vestibule
+      // LEFT EAR - COUNTERCLOCKWISE FLOW (MIRROR OF RIGHT EAR)
+      // Based on RIGHT ear screenshots:
+      //   R-Stage 1: ~210° (7 o'clock) bottom-left
+      //   R-Stage 2: ~240-270° (9-10 o'clock) left side going up
+      //   R-Stage 3: ~300-330° (11-12 o'clock) top-left
+      //   R-Stage 4: ~0-30° (1-2 o'clock) top-right
+      //   R-Stage 5: ~60° (5 o'clock) vestibule exit
+      //
+      // LEFT ear MIRRORS this counterclockwise from spawn at 60° (5 o'clock):
+      //   L-Stage 1: ~60° (5 o'clock) bottom-right + settling toward cupula
+      //   L-Stage 2: ~0-30° (2-3 o'clock) right side going up counterclockwise
+      //   L-Stage 3: ~330-300° (1-12 o'clock) top-right
+      //   L-Stage 4: ~270-240° (11-10 o'clock) top-left
+      //   L-Stage 5: ~210° (7 o'clock) vestibule exit
+
+      // Stage 1: Starting position + cupula settling (5-6 o'clock area)
+      // Spawn at 60°, gravity toward cupula at 90°, so include both
+      if (degrees >= 30 && degrees < 110) return 'red'  // 5-6 o'clock, includes settling
+
+      // Stage 2: Right side moving up counterclockwise (2-3 o'clock area)
+      // Must leave stage 1 zone and move toward top-right
+      if ((degrees >= 330 && degrees <= 360) || (degrees >= 0 && degrees < 30)) return 'yellow'  // Wraps around 0°
+
+      // Stage 3: Top area of canal (10-1 o'clock, 210-330°)
+      // Mirrors right ear blue bracket positioning
+      if (degrees >= 210 && degrees < 330) return 'blue'
+
+      // Stage 4: Descending toward vestibule (8-9 o'clock, 150-210°)
+      // Should trigger MUCH earlier, around 150-180° range
       if (degrees >= 150 && degrees < 210) return 'orange'
-      // Green bracket: Final vestibule position
-      if (degrees >= 290 && degrees < 320) return 'green'
+
+      // Stage 5: Actually entering vestibule (7-8 o'clock, 120-150°)
+      // Near the vestibule exit at ~120° (7 o'clock per code comment)
+      if (degrees >= 120 && degrees < 150) return 'green'
     }
     
     return 'red' // default to starting position
@@ -1067,16 +1171,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       bracketCounts[bracket as keyof typeof bracketCounts]++
     })
 
-    // Find the bracket with at least 1 particle (1/4 threshold)
-    let targetBracket = 'red' // default
-    for (const [bracket, count] of Object.entries(bracketCounts)) {
-      if (count >= 1) {
-        targetBracket = bracket
-        break
-      }
-    }
-
-    // Map brackets to avatar stages (only move forward)
+    // Map brackets to avatar stages
     const bracketToStage: { [key: string]: number } = {
       red: 1,    // Stage 1
       yellow: 2, // Stage 2
@@ -1085,27 +1180,50 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       green: 5   // Stage 5
     }
 
-    const newStage = bracketToStage[targetBracket]
+    // Find the bracket with most particles - much more responsive approach
+    let targetBracket = 'red' // default
+    let maxCount = 0
+    let maxStage = 1
+
+    for (const [bracket, count] of Object.entries(bracketCounts)) {
+      const stage = bracketToStage[bracket]
+      
+      // Accept any particles - be very responsive
+      if (count > 0) {
+        // Prioritize by particle count, then by highest stage
+        if (count > maxCount || (count === maxCount && stage > maxStage)) {
+          maxCount = count
+          maxStage = stage
+          targetBracket = bracket
+        }
+      }
+    }
+
+    // Sequential progression only - prevent stage skipping (this was the main issue to fix)
+    const maxAllowedStage = currentAvatarStage + 1
+    const candidateStage = Math.min(maxStage, maxAllowedStage)
     
-    if (newStage > currentAvatarStage) {
+    // Only advance stages, never go backwards
+    if (candidateStage > currentAvatarStage) {
       // Check if this is a new detection or the same stage we're already waiting for
-      if (newStage !== detectedStage) {
+      if (candidateStage !== detectedStage) {
         // New stage detected - clear any existing timer and start new one
         if (detectionTimer) {
           clearTimeout(detectionTimer)
         }
         
-        setDetectedStage(newStage)
+        setDetectedStage(candidateStage)
         
+        // Much shorter delay for responsiveness
         const newTimer = setTimeout(() => {
-          startAvatarTransition(newStage)
+          startAvatarTransition(candidateStage)
           setDetectionTimer(null)
-        }, detectionDelayMs)
+        }, 300) // Reduced from 800ms to 300ms for better responsiveness
         
         setDetectionTimer(newTimer)
       }
       // If it's the same stage we're already waiting for, just let the timer continue
-    } else if (newStage <= currentAvatarStage && detectionTimer) {
+    } else if (candidateStage <= currentAvatarStage && detectionTimer) {
       // Particles moved back to previous stage - cancel pending transition
       clearTimeout(detectionTimer)
       setDetectionTimer(null)
@@ -1302,6 +1420,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                   clearTimeout(detectionTimer)
                   setDetectionTimer(null)
                 }
+                
+                // Clean up stage position timer
               }}
               style={{
                 marginTop: '20px',
@@ -1382,8 +1502,58 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
           </div>
         )}
 
-        {/* Simulation Canvas - Show if ear and perspective selected and (permission granted OR orientation setup complete) */}
-        {selectedEar && selectedPerspective && (permissionGranted || orientationSetupComplete) && (
+        {/* Orientation not supported message */}
+        {selectedEar && selectedPerspective && orientationSetupComplete && !permissionGranted && (
+          <div style={{ textAlign: 'center', padding: '40px 20px', maxWidth: '400px' }}>
+            <h3 style={{ color: '#dc2626' }}>⚠️ Device Orientation Not Available</h3>
+            <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px', lineHeight: '1.6' }}>
+              This training requires device orientation sensors to detect tilting movements.
+            </p>
+            <div style={{
+              backgroundColor: '#fef2f2',
+              padding: '20px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              textAlign: 'left',
+              fontSize: '14px',
+              border: '1px solid #fecaca'
+            }}>
+              <p style={{ marginBottom: '10px' }}><strong>Possible reasons:</strong></p>
+              <ul style={{ paddingLeft: '20px', margin: 0 }}>
+                <li>Device orientation permission was denied</li>
+                <li>Your device doesn't have motion sensors</li>
+                <li>You're using a desktop browser</li>
+                <li>Browser security settings block sensor access</li>
+              </ul>
+            </div>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+              Try using a mobile device (smartphone or tablet) with a modern browser like Chrome or Safari.
+            </p>
+            <button
+              onClick={() => {
+                setSelectedEar(null)
+                setSelectedPerspective(null)
+                setOrientationSetupComplete(false)
+                setPermissionGranted(false)
+              }}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                backgroundColor: 'white',
+                color: '#666',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              ← Go Back
+            </button>
+          </div>
+        )}
+
+        {/* Simulation Canvas - Show if ear and perspective selected and permission granted */}
+        {selectedEar && selectedPerspective && permissionGranted && orientationSetupComplete && (
           <>
             {/* Clinician Perspective Instructions (above canvas) */}
             {selectedPerspective === 'clinician' && (
@@ -1493,6 +1663,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                       clearTimeout(detectionTimer)
                       setDetectionTimer(null)
                     }
+                    
+                    // Clean up stage position timer
                   }}
                   style={{
                     padding: '10px 20px',

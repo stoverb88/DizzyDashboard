@@ -16,9 +16,18 @@ import { EvalTab } from "./EvalTab";
 import { SplashScreen } from './SplashScreen';
 import { PostSplashOptions } from './PostSplashOptions';
 import { FindChartNote } from './FindChartNote';
+import { EvalProvider, useEvalContext } from '../contexts/EvalContext';
+import {
+  isFullscreenSupported,
+  isFullscreen as checkIsFullscreen,
+  requestFullscreen,
+  exitFullscreen as exitFullscreenUtil,
+  addFullscreenChangeListener
+} from '../utils/fullscreenUtils';
 import "../styles/globals.css";
 
-export default function VestibularScreeningApp() {
+function VestibularScreeningAppContent() {
+  const { resetEvalForm } = useEvalContext();
   const [activeTab, setActiveTab] = useState("questionnaire");
   const [isMobile, setIsMobile] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
@@ -37,23 +46,16 @@ export default function VestibularScreeningApp() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Fullscreen change detection
+  // Fullscreen change detection with cross-browser support
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      setIsFullscreen(checkIsFullscreen());
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    // Add cross-browser fullscreen change listeners
+    const cleanup = addFullscreenChangeListener(handleFullscreenChange);
 
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-    };
+    return cleanup;
   }, []);
 
   // Pinch-to-exit fullscreen gesture detection
@@ -91,12 +93,8 @@ export default function VestibularScreeningApp() {
         // Detect pinch-in gesture: fingers moving closer together
         // Thresholds: minimum 50px decrease in distance, minimum 200ms gesture duration
         if (distanceChange > 50 && timeElapsed > 200) {
-          // Exit fullscreen
-          if (document.exitFullscreen) {
-            document.exitFullscreen().catch(err => {
-              console.error('Error exiting fullscreen:', err);
-            });
-          }
+          // Exit fullscreen using cross-browser utility
+          exitFullscreenUtil();
           // Reset gesture tracking
           touches = null;
           initialDistance = 0;
@@ -121,36 +119,39 @@ export default function VestibularScreeningApp() {
     };
   }, [isFullscreen]);
 
-  const handleSplashDismiss = () => {
-    // Only request fullscreen if not already in fullscreen
-    if (!isFullscreen && document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-      });
+  const handleSplashDismiss = async () => {
+    // Only request fullscreen if not already in fullscreen and API is supported
+    if (!isFullscreen && isFullscreenSupported()) {
+      const success = await requestFullscreen();
+      if (!success) {
+        console.warn('Could not enter fullscreen mode. Continuing anyway.');
+      }
+    } else if (!isFullscreenSupported()) {
+      console.info('Fullscreen API not supported on this device/browser');
     }
     setAppState('options');
   };
 
   const handleStartEval = () => {
-    // Clear all evaluation-related localStorage data directly
+    // Clear form data but keep HIPAA flags for modal trigger
     if (typeof window !== 'undefined') {
       localStorage.removeItem('vestibularFormData');
       localStorage.removeItem('evalCurrentStep');
-      localStorage.removeItem('evalHasReset');
+      // Don't remove evalHasReset here - we need it for HIPAA modal
     }
-    
+
     // Force EvalTab to re-render with fresh state
     setEvalKey(prev => prev + 1);
-    
+
     // Reset active tab to start of evaluation
     setActiveTab("questionnaire");
-    
+
     setAppState('eval');
-    
+
     // Small delay to ensure localStorage is cleared before calling reset function
     setTimeout(() => {
-      if (typeof window !== 'undefined' && (window as any).resetEvalForm) {
-        (window as any).resetEvalForm();
+      if (resetEvalForm) {
+        resetEvalForm();
       }
     }, 50);
   };
@@ -174,12 +175,12 @@ export default function VestibularScreeningApp() {
   const handleConfirmReset = () => {
     setShowConfirmDialog(false);
     setActiveTab("questionnaire");
-    
-    // Call the reset function from EvalTab if it exists
-    if (typeof window !== 'undefined' && (window as any).resetEvalForm) {
-      (window as any).resetEvalForm();
+
+    // Call the reset function from EvalTab using context
+    if (resetEvalForm) {
+      resetEvalForm();
     }
-    
+
     setEvalKey(prev => prev + 1); // Force EvalTab to re-render with fresh state
     setAppState('options');
   };
@@ -444,5 +445,14 @@ export default function VestibularScreeningApp() {
         </div>
       )}
     </>
+  );
+}
+
+// Wrapper component with EvalProvider
+export default function VestibularScreeningApp() {
+  return (
+    <EvalProvider>
+      <VestibularScreeningAppContent />
+    </EvalProvider>
   );
 } 
