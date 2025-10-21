@@ -1424,7 +1424,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
-        padding: '80px 20px 20px 20px',
+        padding: '40px 20px 40px 20px',
         overflowY: 'auto'
       }}>
         {/* Unified Setup Screen - Show when no ear/perspective selected OR when orientation not ready */}
