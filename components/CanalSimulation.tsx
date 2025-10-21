@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import ReactPlayer from 'react-player'
 
 interface Particle {
   id: number
@@ -54,6 +55,14 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   const [detectedStage, setDetectedStage] = useState(1)
   const [detectionTimer, setDetectionTimer] = useState<NodeJS.Timeout | null>(null)
   const detectionDelayMs = 300 // Reduced for better responsiveness
+
+  // Nystagmus GIF state (clinician view only)
+  const [nystagmusPlaying, setNystagmusPlaying] = useState(false)
+  const nystagmusTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const nystagmusStopTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastVelocityCheckRef = useRef<number>(0)
+  const particleSpawnTimeRef = useRef<number>(0)
+  const lastCupulaContactTimeRef = useRef<number>(0) // Track when particles were last near cupula
 
   // Canvas dimensions - optimized for mobile
   const CANVAS_WIDTH = 450  // Increased from 400
@@ -141,6 +150,20 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     setIsTransitioning(false)
     setPreviousAvatarStage(1)
     setTransitionProgress(0)
+
+    // Reset nystagmus GIF to paused state
+    setNystagmusPlaying(false)
+    if (nystagmusTimerRef.current) {
+      clearTimeout(nystagmusTimerRef.current)
+      nystagmusTimerRef.current = null
+    }
+    if (nystagmusStopTimerRef.current) {
+      clearTimeout(nystagmusStopTimerRef.current)
+      nystagmusStopTimerRef.current = null
+    }
+    lastVelocityCheckRef.current = 0
+    lastCupulaContactTimeRef.current = 0 // Reset cupula contact tracking
+    particleSpawnTimeRef.current = Date.now() // Record spawn time for grace period
     if (transitionTimeoutRef.current) {
       clearTimeout(transitionTimeoutRef.current)
       transitionTimeoutRef.current = null
@@ -192,44 +215,42 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
   // Start avatar transition animation
   const startAvatarTransition = useCallback((newStage: number) => {
     if (isTransitioning || newStage === currentAvatarStage) return
-    
+
     // Clean up any existing transition
     if (transitionTimeoutRef.current) {
       clearTimeout(transitionTimeoutRef.current)
     }
-    
+
     setPreviousAvatarStage(currentAvatarStage)
     setIsTransitioning(true)
     setTransitionProgress(0)
-    
-    // Smooth transition over 800ms
-    const transitionDuration = 800
-    const steps = 40 // 20ms intervals for smooth animation
-    const stepDuration = transitionDuration / steps
-    
-    let step = 0
-    const transitionInterval = setInterval(() => {
-      step++
-      const progress = step / steps
-      
-      // Use easeInOutCubic for natural movement feel
-      const easedProgress = progress < 0.5 
-        ? 4 * progress * progress * progress 
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2
-      
+
+    // Smooth transition using requestAnimationFrame
+    const transitionDuration = 600 // Reduced to 600ms for snappier feel
+    const startTime = performance.now()
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / transitionDuration, 1)
+
+      // CSS ease-in-out equivalent easing (easeInOutSine)
+      const easedProgress = -(Math.cos(Math.PI * progress) - 1) / 2
+
       setTransitionProgress(easedProgress)
-      
-      if (step >= steps) {
-        clearInterval(transitionInterval)
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
         setCurrentAvatarStage(newStage)
         setIsTransitioning(false)
         setTransitionProgress(0)
       }
-    }, stepDuration)
-    
-    // Cleanup timeout
+    }
+
+    requestAnimationFrame(animate)
+
+    // Cleanup timeout as a safety fallback
     transitionTimeoutRef.current = setTimeout(() => {
-      clearInterval(transitionInterval)
       setCurrentAvatarStage(newStage)
       setIsTransitioning(false)
       setTransitionProgress(0)
@@ -678,10 +699,15 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
 
     particlesRef.current = newParticles
     setParticles(newParticles)
-    
+
+    // Check particle velocity for nystagmus GIF (clinician view only)
+    if (selectedPerspective === 'clinician') {
+      checkParticleVelocity(newParticles)
+    }
+
     // Update avatar stage based on particle positions
     updateAvatarStage()
-  }, [orientation, epleyComplete, selectedEar, currentAvatarStage, completionAnimationStarted, startCompletionAnimation])
+  }, [orientation, epleyComplete, selectedEar, currentAvatarStage, completionAnimationStarted, startCompletionAnimation, selectedPerspective, nystagmusPlaying])
 
   // Animation loop
   useEffect(() => {
@@ -1160,6 +1186,94 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
     }
   }
 
+  // Check particle velocity and control nystagmus GIF
+  function checkParticleVelocity(particles: Particle[]) {
+    const VELOCITY_THRESHOLD = 0.2 // Minimum velocity to consider particle "moving" (0.1=ultra-sensitive, 0.2=very sensitive, 0.3=sensitive, 0.5=moderate, 0.8=high)
+    const MIN_MOVING_PARTICLES = 3  // Need at least 3 particles moving
+    const STOP_DELAY = 1500 // 1.5 seconds to wait after particles stop before hiding GIF
+    const GRACE_PERIOD = 2000 // 2 seconds after spawn before allowing GIF to trigger
+    const CUPULA_BUFFER = 15 // Extra pixels around cupula to detect "near cupula" (prevents oscillation detection issues)
+    const CUPULA_LOCKOUT_DURATION = 500 // ms to keep blocking GIF after cupula contact detected
+
+    const currentTime = Date.now()
+
+    // Check if we're still in the grace period after particle spawn
+    const timeSinceSpawn = currentTime - particleSpawnTimeRef.current
+    if (timeSinceSpawn < GRACE_PERIOD) {
+      return // Don't trigger GIF during grace period
+    }
+
+    // Check if ANY particle is touching or very near the cupula (with buffer zone)
+    // This prevents rapid oscillation from triggering the GIF
+    const anyParticleNearCupula = particles.some(p => {
+      const cupulaX = CENTER_X
+      const cupulaWidth = TUBE_WIDTH * 0.7
+      const cupulaHeight = TUBE_WIDTH * 0.85
+      const cupulaY = CENTER_Y + OUTER_RADIUS - cupulaHeight / 2
+
+      // Expanded collision box with buffer
+      return (
+        p.x - p.radius - CUPULA_BUFFER < cupulaX + cupulaWidth / 2 &&
+        p.x + p.radius + CUPULA_BUFFER > cupulaX - cupulaWidth / 2 &&
+        p.y - p.radius - CUPULA_BUFFER < cupulaY + cupulaHeight / 2 &&
+        p.y + p.radius + CUPULA_BUFFER > cupulaY - cupulaHeight / 2
+      )
+    })
+
+    if (anyParticleNearCupula) {
+      // Update the last contact time
+      lastCupulaContactTimeRef.current = currentTime
+
+      // Particles are near cupula - don't trigger or keep GIF playing
+      // If GIF is currently playing, stop it
+      if (nystagmusPlaying && !nystagmusStopTimerRef.current) {
+        nystagmusStopTimerRef.current = setTimeout(() => {
+          setNystagmusPlaying(false)
+          nystagmusStopTimerRef.current = null
+        }, STOP_DELAY)
+      }
+      return
+    }
+
+    // Check if we're still in the lockout period after cupula contact
+    const timeSinceLastCupulaContact = currentTime - lastCupulaContactTimeRef.current
+    if (timeSinceLastCupulaContact < CUPULA_LOCKOUT_DURATION) {
+      return // Don't trigger GIF yet - wait for particles to fully leave cupula area
+    }
+
+    // Count particles with significant velocity
+    const movingParticles = particles.filter(p => {
+      const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
+      return speed > VELOCITY_THRESHOLD
+    })
+
+    const isMoving = movingParticles.length >= MIN_MOVING_PARTICLES
+
+    if (isMoving) {
+      // Particles are moving - show GIF
+      lastVelocityCheckRef.current = currentTime
+
+      // Clear any pending stop timer
+      if (nystagmusStopTimerRef.current) {
+        clearTimeout(nystagmusStopTimerRef.current)
+        nystagmusStopTimerRef.current = null
+      }
+
+      // Only turn on if not already playing (avoid redundant setState)
+      if (!nystagmusPlaying) {
+        setNystagmusPlaying(true)
+      }
+    } else {
+      // Particles stopped - start countdown to hide GIF (if not already counting down)
+      if (nystagmusPlaying && !nystagmusStopTimerRef.current) {
+        nystagmusStopTimerRef.current = setTimeout(() => {
+          setNystagmusPlaying(false)
+          nystagmusStopTimerRef.current = null
+        }, STOP_DELAY)
+      }
+    }
+  }
+
   // Update avatar stage based on particle positions
   function updateAvatarStage() {
     if (particlesRef.current.length < 1) return
@@ -1213,12 +1327,39 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         }
         
         setDetectedStage(candidateStage)
-        
-        // Much shorter delay for responsiveness
+
+        // Stage-specific detection delay - faster for stage 5
+        const detectionDelay = candidateStage === 5 ? 50 : 300 // 50ms for stage 5, 300ms for others
+
         const newTimer = setTimeout(() => {
+          // Trigger nystagmus GIF with stage-specific timing (clinician view only)
+          if (selectedPerspective === 'clinician') {
+            // Clear any existing nystagmus timer
+            if (nystagmusTimerRef.current) {
+              clearTimeout(nystagmusTimerRef.current)
+            }
+
+            let duration = 0
+            if (candidateStage === 2 && currentAvatarStage === 1) {
+              duration = 10000 // 10 seconds for stage 1→2
+            } else if (candidateStage === 3 && currentAvatarStage === 2) {
+              duration = 3000 // 3 seconds for stage 2→3
+            } else if (candidateStage === 4 && currentAvatarStage === 3) {
+              duration = 5000 // 5 seconds for stage 3→4
+            } else if (candidateStage === 5 && currentAvatarStage === 4) {
+              duration = 2000 // 2 seconds for stage 4→5
+            }
+
+            if (duration > 0) {
+              // Ensure GIF is playing when stage transition happens
+              // Velocity-based detection will take over control after this
+              setNystagmusPlaying(true)
+            }
+          }
+
           startAvatarTransition(candidateStage)
           setDetectionTimer(null)
-        }, 300) // Reduced from 800ms to 300ms for better responsiveness
+        }, detectionDelay)
         
         setDetectionTimer(newTimer)
       }
@@ -1258,8 +1399,8 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
         alignItems: 'center',
         backgroundColor: 'white'
       }}>
-        <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '600' }}>
-          🎯 Pocket Epley Trainer
+        <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '600', color: '#1f2937' }}>
+          Interactive Epley Trainer
         </h2>
         <button
           onClick={onClose}
@@ -1276,165 +1417,163 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
       </div>
 
       {/* Main content */}
-      <div style={{ 
-        marginTop: '70px',  // Reduced from 80px
-        marginBottom: '15px', // Reduced from 20px
+      <div style={{
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '12px',  // Reduced from 15px
+        justifyContent: 'center',
         width: '100%',
-        maxWidth: '500px',
-        padding: '0 15px',  // Reduced from 20px
-        overflowY: 'auto',
-        maxHeight: 'calc(100vh - 100px)'  // Adjusted for smaller header margin
+        padding: '80px 20px 20px 20px',
+        overflowY: 'auto'
       }}>
-        {/* Ear Selection Screen */}
-        {!selectedEar && (
-          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <h3 style={{ marginBottom: '10px' }}>Select Ear for Training</h3>
-            <p style={{ marginBottom: '30px', color: '#666', fontSize: '14px' }}>
-              Choose which ear you want to practice the Epley maneuver on
-            </p>
-            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setSelectedEar('left')}
-                style={{
-                  padding: '20px 30px',
-                  borderRadius: '12px',
-                  border: '2px solid #374151',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(55, 65, 81, 0.1)',
-                  minWidth: '140px',
-                  order: 1,
-                  textAlign: 'center'
-                }}
-              >
-                Left Ear<br/>
-                <span style={{ fontSize: '12px', opacity: 0.7 }}>Epley Maneuver</span>
-              </button>
-              <button
-                onClick={() => setSelectedEar('right')}
-                style={{
-                  padding: '20px 30px',
-                  borderRadius: '12px',
-                  border: '2px solid #374151',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(55, 65, 81, 0.1)',
-                  minWidth: '140px',
-                  order: 2,
-                  textAlign: 'center'
-                }}
-              >
-                Right Ear<br/>
-                <span style={{ fontSize: '12px', opacity: 0.7 }}>Epley Maneuver</span>
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Unified Setup Screen - Show when no ear/perspective selected OR when orientation not ready */}
+        {(!selectedEar || !selectedPerspective || !orientationSetupComplete) && !permissionGranted && (
+          <div style={{
+            width: '100%',
+            maxWidth: '440px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px'
+          }}>
 
-        {/* Perspective Selection Screen */}
-        {selectedEar && !selectedPerspective && (
-          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <h3 style={{ marginBottom: '10px' }}>Select Training Perspective</h3>
-            <p style={{ marginBottom: '30px', color: '#666', fontSize: '14px' }}>
-              Choose your learning perspective for the {selectedEar} ear Epley maneuver
-            </p>
-            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setSelectedPerspective('patient')}
-                style={{
-                  padding: '20px 30px',
-                  borderRadius: '12px',
-                  border: '2px solid #667eea',
-                  backgroundColor: 'white',
-                  color: '#667eea',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.1)',
-                  minWidth: '140px',
-                  textAlign: 'center'
-                }}
-              >
-                Patient Perspective<br/>
-                <span style={{ fontSize: '12px', opacity: 0.7 }}>3rd Person Body View</span>
-              </button>
-              <button
-                onClick={() => setSelectedPerspective('clinician')}
-                style={{
-                  padding: '20px 30px',
-                  borderRadius: '12px',
-                  border: '2px solid #10b981',
-                  backgroundColor: 'white',
-                  color: '#10b981',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.1)',
-                  minWidth: '140px',
-                  textAlign: 'center'
-                }}
-              >
-                Clinician Perspective<br/>
-                <span style={{ fontSize: '12px', opacity: 0.7 }}>1st Person Face View</span>
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedEar(null)
-                setSelectedPerspective(null)
-                setEpleyComplete(false)
-                setCurrentAvatarStage(1) // Reset avatar stage
-                // Don't reset orientation setup - keep it for switching ears
-                
-                // Clean up completion animation
-                setCompletionAnimationStarted(false)
-                setAvatarOpacity(1.0)
-                setSuccessOpacity(0.0)
-                if (completionTimeoutRef.current) {
-                  clearTimeout(completionTimeoutRef.current)
-                  completionTimeoutRef.current = null
-                }
-                
-                // Clean up transition animation
-                setIsTransitioning(false)
-                setPreviousAvatarStage(1)
-                setTransitionProgress(0)
-                if (transitionTimeoutRef.current) {
-                  clearTimeout(transitionTimeoutRef.current)
-                  transitionTimeoutRef.current = null
-                }
-                
-                // Clean up detection delay
-                setDetectedStage(1)
-                if (detectionTimer) {
-                  clearTimeout(detectionTimer)
-                  setDetectionTimer(null)
-                }
-                
-                // Clean up stage position timer
-              }}
-              style={{
-                marginTop: '20px',
-                padding: '10px 20px',
-                borderRadius: '6px',
-                border: '1px solid #d1d5db',
-                backgroundColor: 'white',
-                color: '#666',
+            {/* Ear Selection */}
+            <div>
+              <label style={{
+                display: 'block',
                 fontSize: '14px',
-                cursor: 'pointer'
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '12px'
+              }}>
+                Affected Ear
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button
+                  onClick={() => setSelectedEar('left')}
+                  style={{
+                    padding: '20px',
+                    borderRadius: '10px',
+                    border: selectedEar === 'left' ? '2px solid #3B82F6' : '2px solid #e5e7eb',
+                    backgroundColor: selectedEar === 'left' ? '#eff6ff' : '#ffffff',
+                    color: selectedEar === 'left' ? '#1e40af' : '#6b7280',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'center',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                  Left {selectedEar === 'left' && '✓'}
+                </button>
+                <button
+                  onClick={() => setSelectedEar('right')}
+                  style={{
+                    padding: '20px',
+                    borderRadius: '10px',
+                    border: selectedEar === 'right' ? '2px solid #3B82F6' : '2px solid #e5e7eb',
+                    backgroundColor: selectedEar === 'right' ? '#eff6ff' : '#ffffff',
+                    color: selectedEar === 'right' ? '#1e40af' : '#6b7280',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'center',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                  Right {selectedEar === 'right' && '✓'}
+                </button>
+              </div>
+            </div>
+
+            {/* Perspective Selection */}
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '12px'
+              }}>
+                Training Perspective
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button
+                  onClick={() => setSelectedPerspective('patient')}
+                  style={{
+                    padding: '20px 12px',
+                    borderRadius: '10px',
+                    border: selectedPerspective === 'patient' ? '2px solid #10b981' : '2px solid #e5e7eb',
+                    backgroundColor: selectedPerspective === 'patient' ? '#ecfdf5' : '#ffffff',
+                    color: selectedPerspective === 'patient' ? '#065f46' : '#6b7280',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'center',
+                    lineHeight: '1.4',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                  Patient<br/><span style={{ fontSize: '12px', opacity: 0.7 }}>3rd Person View</span> {selectedPerspective === 'patient' && '✓'}
+                </button>
+                <button
+                  onClick={() => setSelectedPerspective('clinician')}
+                  style={{
+                    padding: '20px 12px',
+                    borderRadius: '10px',
+                    border: selectedPerspective === 'clinician' ? '2px solid #10b981' : '2px solid #e5e7eb',
+                    backgroundColor: selectedPerspective === 'clinician' ? '#ecfdf5' : '#ffffff',
+                    color: selectedPerspective === 'clinician' ? '#065f46' : '#6b7280',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'center',
+                    lineHeight: '1.4',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                  Clinician<br/><span style={{ fontSize: '12px', opacity: 0.7 }}>1st Person View</span> {selectedPerspective === 'clinician' && '✓'}
+                </button>
+              </div>
+            </div>
+
+            {/* Reminder to lock portrait mode */}
+            {selectedEar && selectedPerspective && (
+              <div style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                backgroundColor: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                fontSize: '13px',
+                color: '#0c4a6e',
+                lineHeight: '1.5'
+              }}>
+                💡 Tip: Lock your device in portrait mode for the best experience
+              </div>
+            )}
+
+            {/* Start Training Button */}
+            <button
+              onClick={requestOrientationPermission}
+              disabled={!selectedEar || !selectedPerspective}
+              style={{
+                padding: '16px 32px',
+                borderRadius: '10px',
+                border: 'none',
+                backgroundColor: (selectedEar && selectedPerspective) ? '#3B82F6' : '#e5e7eb',
+                color: (selectedEar && selectedPerspective) ? 'white' : '#9ca3af',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: (selectedEar && selectedPerspective) ? 'pointer' : 'not-allowed',
+                boxShadow: (selectedEar && selectedPerspective) ? '0 2px 8px rgba(59, 130, 246, 0.25)' : 'none',
+                transition: 'all 0.2s ease'
               }}
             >
-              ← Back to Ear Selection
+              Start Training
             </button>
           </div>
         )}
@@ -1575,7 +1714,52 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
               </div>
             )}
 
-            {/* Patient Perspective Instructions (above canvas) */}
+            {/* Nystagmus GIF - Pre-loaded, clinician view only */}
+            {selectedPerspective === 'clinician' && permissionGranted && (
+              <div style={{
+                width: '100%',
+                maxWidth: '300px',
+                height: '150px',
+                marginBottom: '8px',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {/* Static frame 1 - Always present as base layer */}
+                <img
+                  src={selectedEar === 'left' ? '/nystagmus-left-ear-frame1.png' : '/nystagmus-right-ear-frame1.png'}
+                  alt={`${selectedEar} ear nystagmus static`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    display: 'block'
+                  }}
+                />
+                {/* Animated GIF - Fades in/out on top */}
+                <img
+                  src={selectedEar === 'left' ? '/nystagmus-left-ear.gif' : '/nystagmus-right-ear.gif'}
+                  alt={`${selectedEar} ear nystagmus animated`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                    opacity: nystagmusPlaying ? 1 : 0,
+                    transition: 'opacity 0.3s ease-in-out'
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Patient Perspective Instructions (below video, above canvas) */}
             {selectedPerspective === 'patient' && (
               <div style={{
                 display: 'flex',
@@ -1594,7 +1778,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                 </p>
               </div>
             )}
-            
+
             <canvas
               ref={canvasRef}
               width={CANVAS_WIDTH}
@@ -1607,7 +1791,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                 cursor: epleyComplete ? 'pointer' : 'default'
               }}
             />
-            
+
             <div style={{ textAlign: 'center', maxWidth: '350px' }}>
               <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
                 <strong>{selectedEar === 'left' ? 'Left' : 'Right'} Ear Epley Training:</strong><br/>
@@ -1636,9 +1820,11 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                     setSelectedEar(null)
                     setSelectedPerspective(null)
                     setEpleyComplete(false)
-                    setCurrentAvatarStage(1) // Reset avatar stage
-                    // Don't reset orientation setup - keep it for switching ears
-                    
+                    setCurrentAvatarStage(1)
+                    setOrientationSetupComplete(false)
+                    setPermissionGranted(false)
+                    setOrientationLockPrompted(false)
+
                     // Clean up completion animation
                     setCompletionAnimationStarted(false)
                     setAvatarOpacity(1.0)
@@ -1647,7 +1833,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                       clearTimeout(completionTimeoutRef.current)
                       completionTimeoutRef.current = null
                     }
-                    
+
                     // Clean up transition animation
                     setIsTransitioning(false)
                     setPreviousAvatarStage(1)
@@ -1656,15 +1842,13 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                       clearTimeout(transitionTimeoutRef.current)
                       transitionTimeoutRef.current = null
                     }
-                    
+
                     // Clean up detection delay
                     setDetectedStage(1)
                     if (detectionTimer) {
                       clearTimeout(detectionTimer)
                       setDetectionTimer(null)
                     }
-                    
-                    // Clean up stage position timer
                   }}
                   style={{
                     padding: '10px 20px',
@@ -1677,7 +1861,7 @@ export function CanalSimulation({ onClose }: CanalSimulationProps) {
                     cursor: 'pointer'
                   }}
                 >
-                  Switch Ear
+                  Back to Menu
                 </button>
               </div>
             </div>

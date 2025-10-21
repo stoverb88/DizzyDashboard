@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Button } from './ui/Button';
 
 interface PostSplashOptionsProps {
   onStartEval: () => void;
@@ -7,21 +8,6 @@ interface PostSplashOptionsProps {
 }
 
 export function PostSplashOptions({ onStartEval, onFindChart }: PostSplashOptionsProps) {
-  const buttonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    padding: '20px',
-    fontSize: '1.2rem',
-    fontWeight: '600',
-    borderRadius: '12px',
-    border: 'none',
-    cursor: 'pointer',
-    marginBottom: '20px',
-    transition: 'transform 0.2s',
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -34,32 +20,27 @@ export function PostSplashOptions({ onStartEval, onFindChart }: PostSplashOption
         alignItems: 'center',
         height: '100%',
         padding: '20px',
+        gap: '16px',
+        maxWidth: '500px',
+        margin: '0 auto',
       }}
     >
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
         onClick={onStartEval}
-        style={{
-          ...buttonStyle,
-          backgroundColor: '#2D3748',
-          color: 'white',
-        }}
       >
         Start an Eval
-      </motion.button>
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+      </Button>
+      <Button
+        variant="secondary"
+        size="lg"
+        fullWidth
         onClick={onFindChart}
-        style={{
-          ...buttonStyle,
-          backgroundColor: '#E2E8F0',
-          color: '#2D3748',
-        }}
       >
         Find my chart note
-      </motion.button>
+      </Button>
     </motion.div>
   );
 } 

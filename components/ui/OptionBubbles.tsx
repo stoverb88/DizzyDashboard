@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { colors, transitions, spacing, borderRadius, touchTarget } from '../../styles/design-tokens';
+import { triggerVeryLightHaptic } from '../../utils/haptics';
 
 interface Option {
   value: string;
@@ -14,9 +16,11 @@ interface OptionBubblesProps {
 }
 
 export function OptionBubbles({ options, value, onChange, name, multiSelect = false }: OptionBubblesProps) {
+  const [hoveredOption, setHoveredOption] = useState<string | null>(null);
   const selectedValues = multiSelect ? value.split(',').filter(Boolean) : [value];
 
   const handleClick = (optionValue: string) => {
+    triggerVeryLightHaptic();
     if (multiSelect) {
       const values = new Set(selectedValues);
       if (values.has(optionValue)) {
@@ -35,9 +39,21 @@ export function OptionBubbles({ options, value, onChange, name, multiSelect = fa
       {options.map((option) => {
         const id = `${name}-${option.value.replace(/\s+/g, '-')}`;
         const isSelected = selectedValues.includes(option.value);
+        const isHovered = hoveredOption === option.value;
 
         return (
-          <label htmlFor={id} key={option.value} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+          <label
+            htmlFor={id}
+            key={option.value}
+            onMouseEnter={() => setHoveredOption(option.value)}
+            onMouseLeave={() => setHoveredOption(null)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              cursor: 'pointer',
+              transition: transitions.base,
+            }}
+          >
             <input
               id={id}
               type={multiSelect ? "checkbox" : "radio"}
@@ -49,34 +65,30 @@ export function OptionBubbles({ options, value, onChange, name, multiSelect = fa
             <span style={{
                 width: "16px",
                 height: "16px",
-                border: `1px solid ${isSelected ? '#3B82F6' : '#D1D5DB'}`,
-                borderRadius: multiSelect ? '4px' : '50%', // Rounded square for checkbox, circle for radio
+                border: `2px solid ${isSelected ? colors.primary[500] : colors.neutral[300]}`,
+                borderRadius: multiSelect ? '4px' : '50%',
                 marginRight: "8px",
-                display: 'inline-block',
-                position: 'relative',
-                backgroundColor: isSelected ? '#3B82F6' : 'white',
-                transition: 'all 0.2s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                backgroundColor: isSelected ? colors.primary[500] : colors.background.primary,
+                transition: transitions.base,
             }}>
               {isSelected && (
                 multiSelect ? (
                   // Checkmark for checkbox
                   <span style={{
-                    position: 'absolute',
-                    left: '5px',
-                    top: '2px',
                     width: '4px',
                     height: '8px',
                     border: 'solid white',
                     borderWidth: '0 2px 2px 0',
                     transform: 'rotate(45deg)',
+                    marginTop: '-1px',
                   }} />
                 ) : (
                   // Dot for radio
                   <span style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
                     width: '8px',
                     height: '8px',
                     borderRadius: '50%',
@@ -85,7 +97,11 @@ export function OptionBubbles({ options, value, onChange, name, multiSelect = fa
                 )
               )}
             </span>
-            <span style={{ color: "#374151", fontSize: "0.9rem" }}>
+            <span style={{
+              color: colors.neutral[900],
+              fontSize: "0.9rem",
+              transition: transitions.base,
+            }}>
               {option.label}
             </span>
           </label>

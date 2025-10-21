@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { colors, shadows, borderRadius, transitions, typography } from '../styles/design-tokens';
+import { triggerVeryLightHaptic } from '../utils/haptics';
 
 const hintsData = [
   {
@@ -40,10 +42,15 @@ interface PeripheralCentralSliderProps {
 }
 
 function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSliderProps) {
+  const handleChange = (newValue: 'peripheral' | 'central') => {
+    triggerVeryLightHaptic();
+    onChange(newValue);
+  };
+
   const trackStyle: React.CSSProperties = {
     width: '100%',
     height: '50px',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.neutral[200],
     borderRadius: '25px',
     display: 'flex',
     justifyContent: 'space-between',
@@ -57,11 +64,10 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
     width: 'calc(50% - 10px)',
     height: '40px',
     borderRadius: '20px',
-    backgroundColor: 'white',
+    backgroundColor: colors.background.primary,
     position: 'absolute',
     top: '5px',
-    transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+    boxShadow: shadows.md,
   };
 
   const peripheralSelected = value === 'peripheral';
@@ -70,7 +76,7 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
   // Calculate knob position based on selection
   const knobLeft = peripheralSelected ? '5px' : centralSelected ? 'calc(50% + 5px)' : 'calc(50% - 20px)';
   const knobWidth = value ? 'calc(50% - 10px)' : '40px';
-  const knobColor = peripheralSelected ? '#34d399' : (centralSelected ? '#f87171' : '#9ca3af');
+  const knobColor = peripheralSelected ? colors.clinical.success[500] : (centralSelected ? colors.clinical.danger[500] : colors.neutral[400]);
 
   const textStyle: React.CSSProperties = {
     fontWeight: 600,
@@ -82,13 +88,13 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
 
   return (
     <div style={trackStyle}>
-      <motion.div 
+      <motion.div
         style={{
-          ...knobStyle, 
+          ...knobStyle,
           backgroundColor: knobColor,
           left: knobLeft,
           width: knobWidth
-        }} 
+        }}
         animate={{
           left: knobLeft,
           width: knobWidth,
@@ -96,8 +102,8 @@ function PeripheralCentralSlider({ id, value, onChange }: PeripheralCentralSlide
         }}
         transition={{ duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
       />
-      <div style={{ ...textStyle, color: peripheralSelected ? 'white' : 'black' }} onClick={() => onChange('peripheral')}>Peripheral</div>
-      <div style={{ ...textStyle, color: centralSelected ? 'white' : 'black' }} onClick={() => onChange('central')}>Central</div>
+      <div style={{ ...textStyle, color: peripheralSelected ? 'white' : colors.neutral[900] }} onClick={() => handleChange('peripheral')}>Peripheral</div>
+      <div style={{ ...textStyle, color: centralSelected ? 'white' : colors.neutral[900] }} onClick={() => handleChange('central')}>Central</div>
     </div>
   );
 }
@@ -135,39 +141,43 @@ export function HintsTab() {
       return {
         title: "High Risk - Possible Stroke",
         text: "The presence of one or more central signs in the HINTS exam is highly suggestive of a central cause, such as a stroke. This patient requires an URGENT referral to the Emergency Department for immediate neurological evaluation and imaging.",
-        color: "#ef4444"
+        color: colors.clinical.danger[500]
       };
     }
-    
+
     return {
       title: "Low Risk - Likely Peripheral",
       text: "The combination of an abnormal Head Impulse, unidirectional Nystagmus, and no Skew Deviation points towards a peripheral cause like vestibular neuritis. The patient can be managed with supportive care and vestibular rehabilitation.",
-      color: "#22c55e"
+      color: colors.clinical.success[500]
     };
   }, [selections]);
 
 
   return (
-    <div style={{ 
-      padding: '15px 10px', 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      backgroundColor: '#f4f4f9',
+    <div style={{
+      padding: '15px 10px',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      backgroundColor: colors.background.secondary,
       maxWidth: '100%',
       overflow: 'hidden'
     }}>
       {hintsData.map(item => (
-        <div key={item.id} style={{ 
-          marginBottom: '12px', 
-          backgroundColor: 'white', 
-          padding: '15px 25px', 
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-          borderRadius: '8px',
+        <div key={item.id} style={{
+          marginBottom: '12px',
+          backgroundColor: colors.background.primary,
+          padding: '15px 25px',
+          boxShadow: shadows.sm,
+          borderRadius: borderRadius.md,
           maxWidth: '100%',
           overflow: 'hidden'
         }}>
-          <h2 style={{ textAlign: 'center', color: '#333', margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>{item.title}</h2>
+          <h2 style={{
+            textAlign: 'center',
+            ...typography.h3,
+            margin: '0 0 12px 0'
+          }}>{item.title}</h2>
           <div style={{ maxWidth: '100%', margin: '0 auto', marginBottom: '12px' }}>
           <PeripheralCentralSlider 
             id={item.id}
@@ -176,40 +186,40 @@ export function HintsTab() {
           />
           </div>
           <div style={{
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginTop: '12px', 
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginTop: '12px',
             fontSize: '13px',
             gap: '12px',
             maxWidth: '100%',
             margin: '0 auto'
           }}>
             <div style={{
-              flex: '1', 
-              textAlign: 'center', 
-              color: '#4b5563',
+              flex: '1',
+              textAlign: 'center',
+              color: colors.neutral[600],
               minWidth: 0,
               padding: '0 8px'
             }}>
                 <strong style={{display: 'block', marginBottom: '4px'}}>{item.peripheralFinding}</strong>
                 <p style={{
-                  margin: '0', 
-                  fontSize: '11px', 
+                  margin: '0',
+                  fontSize: '11px',
                   lineHeight: '1.4',
                   wordWrap: 'break-word'
                 }}>{item.peripheralInfo}</p>
             </div>
             <div style={{
-              flex: '1', 
-              textAlign: 'center', 
-              color: '#4b5563',
+              flex: '1',
+              textAlign: 'center',
+              color: colors.neutral[600],
               minWidth: 0,
               padding: '0 8px'
             }}>
                 <strong style={{display: 'block', marginBottom: '4px'}}>{item.centralFinding}</strong>
                 <p style={{
-                  margin: '0', 
-                  fontSize: '11px', 
+                  margin: '0',
+                  fontSize: '11px',
                   lineHeight: '1.4',
                   wordWrap: 'break-word'
                 }}>{item.centralInfo}</p>
@@ -219,13 +229,34 @@ export function HintsTab() {
       ))}
 
       <div style={{ marginTop: 'auto', paddingTop: '10px' }}>
-        <h3 style={{ display: 'flex', alignItems: 'center', fontSize: '1.1rem', color: '#1f2937', margin: '0 0 8px 10px' }}>
+        <h3 style={{
+          display: 'flex',
+          alignItems: 'center',
+          ...typography.h4,
+          margin: '0 0 8px 10px'
+        }}>
           <input type="checkbox" checked={!!selections.hi || !!selections.n || !!selections.ts} readOnly style={{width: '18px', height: '18px', marginRight: '10px'}}/>
           Next Steps:
         </h3>
-        <div style={{ backgroundColor: 'white', padding: '15px', borderLeft: `5px solid ${nextSteps.color}` }}>
-          <h4 style={{margin: '0 0 8px 0', color: nextSteps.color, fontSize: '1rem', fontWeight: 'bold'}}>{nextSteps.title}</h4>
-          <p style={{margin: 0, color: '#4b5563', lineHeight: 1.5, fontSize: '13px' }}>{nextSteps.text}</p>
+        <div style={{
+          backgroundColor: colors.background.primary,
+          padding: '15px',
+          borderLeft: `5px solid ${nextSteps.color}`,
+          borderRadius: borderRadius.md,
+          boxShadow: shadows.sm
+        }}>
+          <h4 style={{
+            margin: '0 0 8px 0',
+            color: nextSteps.color,
+            fontSize: '1rem',
+            fontWeight: 'bold'
+          }}>{nextSteps.title}</h4>
+          <p style={{
+            margin: 0,
+            color: colors.neutral[600],
+            lineHeight: 1.5,
+            fontSize: '13px'
+          }}>{nextSteps.text}</p>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { OptionBubbles } from "./ui/OptionBubbles";
 import { CustomDropdown } from "./ui/CustomDropdown";
 import { useDebounce } from "../hooks/useDebounce";
 import { useEvalContext } from "../contexts/EvalContext";
+import { triggerVeryLightHaptic } from "../utils/haptics";
 
 const steps = [
   "Red Flag Screening",
@@ -1021,41 +1022,10 @@ export function EvalTab() {
       cards.push({ type: 'diagnostic', title: 'Vestibular migraine', data: diagnosticCriteria[4] });
     }
     
-    // Superior Canal Dehiscence detection
-    if (formData.boneConduction || formData.soundInducedVertigo || formData.pulsatileTinnitus || formData.autophony) {
-      // Find SCD in diagnosticCriteria array (would need to add this)
-      const scdData = diagnosticCriteria.find(item => item.title.includes('Superior canal dehiscence'));
-      if (scdData) {
-        cards.push({ type: 'diagnostic', title: 'Superior canal dehiscence', data: scdData });
-      }
-    }
-    
-    // PPPD detection - chronic dizziness with motion sensitivity
-    if ((formData.episodeDuration === 'weeks' || formData.visualStimuli || formData.darknessWorse || formData.unevenGroundWorse) &&
-        formData.functionalImpairment) {
-      // Find PPPD in diagnosticCriteria array
-      const pppdData = diagnosticCriteria.find(item => item.title.includes('Persistent postural-perceptual'));
-      if (pppdData) {
-        cards.push({ type: 'diagnostic', title: 'Persistent postural-perceptual dizziness', data: pppdData });
-      }
-    }
-    
-    // Bilateral Vestibulopathy detection
-    if (formData.oscillopsia && formData.darknessWorse && formData.unevenGroundWorse) {
-      const bilateralData = diagnosticCriteria.find(item => item.title.includes('Bilateral vestibulopathy'));
-      if (bilateralData) {
-        cards.push({ type: 'diagnostic', title: 'Bilateral vestibulopathy', data: bilateralData });
-      }
-    }
-    
-    // Perilymphatic Fistula detection
-    if (formData.barotrauma && (formData.hearingChanges === 'Yes' || formData.tinnitus === 'Yes' || formData.earFullness !== 'None')) {
-      const plfData = diagnosticCriteria.find(item => item.title.includes('Perilymphatic fistula'));
-      if (plfData) {
-        cards.push({ type: 'diagnostic', title: 'Perilymphatic fistula', data: plfData });
-      }
-    }
-    
+    // NOTE: Superior Canal Dehiscence, PPPD, Bilateral Vestibulopathy, and Perilymphatic Fistula
+    // detection logic has been removed because the required screening questions don't exist in the evaluation form.
+    // These can be added back when appropriate questions are implemented.
+
     // Include relevant oculomotor abnormal findings cards (with enhanced detection)
     if (formData.oculomotorExam.spontaneousNystagmus && formData.oculomotorExam.spontaneousNystagmus !== 'None') {
       cards.push({ type: 'oculomotor', title: 'Spontaneous Nystagmus (Abnormal)', data: abnormalFindingsData[0] });
@@ -1523,7 +1493,7 @@ export function EvalTab() {
              <div style={sectionStyle}>
               {redFlagList.map(flag => (
                 <label key={flag.id} style={checkboxLabelStyle}>
-                  <input type="checkbox" style={checkboxStyle} checked={formData.redFlags[flag.id as keyof typeof formData.redFlags]} onChange={(e) => updateFormData(flag.id, e.target.checked, 'redFlags')} />
+                  <input type="checkbox" style={checkboxStyle} checked={formData.redFlags[flag.id as keyof typeof formData.redFlags]} onChange={(e) => { triggerVeryLightHaptic(); updateFormData(flag.id, e.target.checked, 'redFlags'); }} />
                   <span>{flag.label}</span>
                 </label>
               ))}
@@ -1647,7 +1617,7 @@ export function EvalTab() {
                   <h3 style={{...labelStyle, fontSize: '1.1rem'}}>{category}</h3>
                   {items.map(item => (
                     <label key={item} style={checkboxLabelStyle}>
-                      <input type="checkbox" style={checkboxStyle} checked={formData.associatedSymptoms.includes(item)} onChange={(e) => updateArrayField('associatedSymptoms', item, e.target.checked)} />
+                      <input type="checkbox" style={checkboxStyle} checked={formData.associatedSymptoms.includes(item)} onChange={(e) => { triggerVeryLightHaptic(); updateArrayField('associatedSymptoms', item, e.target.checked); }} />
                       <span>{item}</span>
                     </label>
                   ))}
@@ -1958,9 +1928,9 @@ export function EvalTab() {
                       name="planOfCare"
                       value={option.value}
                       checked={formData.planOfCare === option.value}
-                      onChange={(e) => updateFormData('planOfCare', e.target.value)}
-                      style={{ 
-                        ...checkboxStyle, 
+                      onChange={(e) => { triggerVeryLightHaptic(); updateFormData('planOfCare', e.target.value); }}
+                      style={{
+                        ...checkboxStyle,
                         marginTop: '6px',
                         marginRight: '12px',
                         flexShrink: 0

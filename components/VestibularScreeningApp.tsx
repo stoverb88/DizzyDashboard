@@ -17,6 +17,7 @@ import { SplashScreen } from './SplashScreen';
 import { PostSplashOptions } from './PostSplashOptions';
 import { FindChartNote } from './FindChartNote';
 import { EvalProvider, useEvalContext } from '../contexts/EvalContext';
+import { Button } from './ui/Button';
 import {
   isFullscreenSupported,
   isFullscreen as checkIsFullscreen,
@@ -399,47 +400,28 @@ function VestibularScreeningAppContent() {
             }}>
               Reset Evaluation?
             </h3>
-            <p style={{ 
-              color: '#4A5568', 
+            <p style={{
+              color: '#4A5568',
               marginBottom: '25px',
               lineHeight: '1.5'
             }}>
               This will clear all your current answers and return you to the main menu. This action cannot be undone.
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button
+              <Button
+                variant="outline"
+                size="md"
                 onClick={handleCancelReset}
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  border: '1px solid #E2E8F0',
-                  backgroundColor: 'white',
-                  color: '#4A5568',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
                 onClick={handleConfirmReset}
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: '#667eea',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
-                }}
               >
                 Reset Evaluation
-              </button>
+              </Button>
             </div>
           </motion.div>
         </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { VideoCarousel } from './VideoCarousel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CanalSimulation } from './CanalSimulation';
+import { Button } from './ui/Button';
 
 const maneuversData = [
   {
@@ -42,26 +43,6 @@ export function ManeuversTab() {
   
   const currentManeuver = maneuversData[maneuverIndex];
 
-  const buttonStyle: React.CSSProperties = {
-    padding: '12px 24px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    borderRadius: '12px',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    backgroundColor: '#667eea',
-    color: 'white',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
-  };
-
-  const disabledButtonStyle: React.CSSProperties = {
-    ...buttonStyle,
-    backgroundColor: '#d1d5db',
-    cursor: 'not-allowed',
-    boxShadow: 'none'
-  };
-
   return (
     <>
       {showSimulation && (
@@ -82,36 +63,56 @@ export function ManeuversTab() {
             <button
               onClick={() => setShowSimulation(true)}
               style={{
-                ...buttonStyle,
-                backgroundColor: '#2D3748',
+                padding: '14px 28px',
+                borderRadius: '8px',
+                border: '2px solid #3B82F6',
+                backgroundColor: '#3B82F6',
                 color: 'white',
-                boxShadow: '0 4px 15px rgba(45, 55, 72, 0.4)',
-                fontSize: '14px',
-                padding: '10px 20px'
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.25)',
+                transition: 'all 0.2s ease',
+                width: '100%',
+                maxWidth: '320px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.borderColor = '#2563EB';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#3B82F6';
+                e.currentTarget.style.borderColor = '#3B82F6';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.25)';
               }}
             >
-              🎯 Pocket Epley Trainer
+              Interactive Epley Trainer
             </button>
           </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <button
+          <Button
+            variant="primary"
+            size="md"
             onClick={handlePrev}
             disabled={maneuverIndex === 0}
-            style={maneuverIndex === 0 ? disabledButtonStyle : buttonStyle}
           >
             &larr; Previous
-          </button>
+          </Button>
           <span style={{color: '#555', fontWeight: '600'}}>
             {maneuverIndex + 1} / {maneuversData.length}
           </span>
-          <button
+          <Button
+            variant="primary"
+            size="md"
             onClick={handleNext}
             disabled={maneuverIndex === maneuversData.length - 1}
-            style={maneuverIndex === maneuversData.length - 1 ? disabledButtonStyle : buttonStyle}
           >
             Next Canal &rarr;
-          </button>
+          </Button>
         </div>
 
         <div style={{

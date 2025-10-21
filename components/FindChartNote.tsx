@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
+import { Button } from './ui/Button'
 
 interface FindChartNoteProps {
   onBack: () => void
@@ -48,16 +49,6 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
     if (e.key === 'Enter') {
       handleFetchNote()
     }
-  }
-
-  const buttonStyle: React.CSSProperties = {
-    padding: '12px 20px',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    fontWeight: '600',
-    transition: 'all 0.2s'
   }
 
   return (
@@ -141,7 +132,8 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
             display: 'block',
             marginBottom: '8px',
             fontWeight: '600',
-            color: '#2D3748'
+            color: '#2D3748',
+            textAlign: 'center'
           }}>
             Chart ID
           </label>
@@ -162,7 +154,8 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
               textAlign: 'center',
               fontFamily: 'monospace',
               fontSize: '1.2rem',
-              letterSpacing: '0.1em'
+              letterSpacing: '0.1em',
+              boxSizing: 'border-box'
             }}
           />
         </div>
@@ -181,19 +174,16 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
           </div>
         )}
 
-        <button
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
           onClick={handleFetchNote}
           disabled={isLoading || chartId.length !== 6}
-          style={{
-            ...buttonStyle,
-            backgroundColor: isLoading || chartId.length !== 6 ? '#CBD5E0' : '#2D3748',
-            color: 'white',
-            width: '100%',
-            marginBottom: '20px'
-          }}
+          style={{ marginBottom: '20px' }}
         >
           {isLoading ? 'Retrieving...' : 'Retrieve Chart Note'}
-        </button>
+        </Button>
 
         {narrative && (
           <motion.div
@@ -221,18 +211,13 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
               }}>
                 Your Chart Note
               </h3>
-              <button
+              <Button
+                variant={isCopied ? "secondary" : "primary"}
+                size="sm"
                 onClick={handleCopyNote}
-                style={{
-                  ...buttonStyle,
-                  backgroundColor: isCopied ? '#48BB78' : '#2D3748',
-                  color: 'white',
-                  padding: '8px 16px',
-                  fontSize: '0.9rem'
-                }}
               >
-                {isCopied ? 'Copied!' : 'Copy'}
-              </button>
+                {isCopied ? '✓ Copied!' : 'Copy'}
+              </Button>
             </div>
             
             <textarea
