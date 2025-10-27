@@ -10,7 +10,7 @@ interface VORx1SetupProps {
 }
 
 export interface VORx1Parameters {
-  targetSymbol: 'A' | 'X' | 'O';
+  targetSymbol: 'A' | 'X';
   orientation: 'horizontal' | 'vertical';
   cadence: number; // 60-120 BPM
   duration: number; // 30-120 seconds
@@ -19,7 +19,7 @@ export interface VORx1Parameters {
 
 export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
   const [isMobile, setIsMobile] = useState(false);
-  const [targetSymbol, setTargetSymbol] = useState<'A' | 'X' | 'O'>('A');
+  const [targetSymbol, setTargetSymbol] = useState<'A' | 'X'>('A');
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
   const [cadence, setCadence] = useState(90); // BPM
   const [duration, setDuration] = useState(60); // seconds
@@ -218,12 +218,6 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               onClick={() => setTargetSymbol('X')}
             >
               X
-            </button>
-            <button
-              style={radioButtonStyle(targetSymbol === 'O')}
-              onClick={() => setTargetSymbol('O')}
-            >
-              O
             </button>
           </div>
 
