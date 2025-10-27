@@ -234,7 +234,13 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
             key="running"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={targetStyle}
+            style={{
+              ...targetStyle,
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
           >
             {params.targetSymbol}
           </motion.div>
@@ -261,16 +267,17 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
       {phase === 'running' && (
         <div style={{
           position: 'fixed',
-          top: '80px',
+          top: '100px',
           left: '50%',
           transform: 'translateX(-50%)',
-          fontSize: '0.9rem',
-          color: '#718096',
+          fontSize: '0.75rem',
+          color: '#A0AEC0',
           textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          fontWeight: '600',
+          letterSpacing: '0.15em',
+          fontWeight: '500',
+          opacity: 0.6,
         }}>
-          {params.orientation === 'horizontal' ? '← Move Head Horizontally →' : '↑ Move Head Vertically ↓'}
+          {params.orientation === 'horizontal' ? 'HORIZONTAL' : 'VERTICAL'}
         </div>
       )}
 

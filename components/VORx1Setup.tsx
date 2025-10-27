@@ -398,103 +398,6 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
           </div>
         </div>
 
-        {/* Contraindications Checklist */}
-        <div style={{
-          ...cardStyle,
-          backgroundColor: showContraindications && !allContraindicationsChecked ? '#FEF2F2' : '#ffffff',
-          borderColor: showContraindications && !allContraindicationsChecked ? '#FECACA' : '#E2E8F0',
-        }}>
-          <h3 style={{
-            ...sectionTitleStyle,
-            marginTop: 0,
-            color: showContraindications && !allContraindicationsChecked ? '#DC2626' : '#2D3748',
-          }}>
-            ⚠️ Before Starting
-          </h3>
-          <p style={{
-            fontSize: '0.9rem',
-            color: '#4A5568',
-            marginBottom: '16px',
-            lineHeight: '1.5',
-          }}>
-            Verify the following criteria before beginning exercise:
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              fontSize: '0.9rem',
-              color: '#2D3748',
-              cursor: 'pointer',
-            }}>
-              <input
-                type="checkbox"
-                checked={contraindicationsChecked[0]}
-                onChange={(e) => {
-                  const newChecked = [...contraindicationsChecked];
-                  newChecked[0] = e.target.checked;
-                  setContraindicationsChecked(newChecked);
-                }}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  marginRight: '12px',
-                  cursor: 'pointer',
-                }}
-              />
-              Patient has been cleared for vestibular rehabilitation
-            </label>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              fontSize: '0.9rem',
-              color: '#2D3748',
-              cursor: 'pointer',
-            }}>
-              <input
-                type="checkbox"
-                checked={contraindicationsChecked[1]}
-                onChange={(e) => {
-                  const newChecked = [...contraindicationsChecked];
-                  newChecked[1] = e.target.checked;
-                  setContraindicationsChecked(newChecked);
-                }}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  marginRight: '12px',
-                  cursor: 'pointer',
-                }}
-              />
-              No active BPPV or cervical spine instability
-            </label>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              fontSize: '0.9rem',
-              color: '#2D3748',
-              cursor: 'pointer',
-            }}>
-              <input
-                type="checkbox"
-                checked={contraindicationsChecked[2]}
-                onChange={(e) => {
-                  const newChecked = [...contraindicationsChecked];
-                  newChecked[2] = e.target.checked;
-                  setContraindicationsChecked(newChecked);
-                }}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  marginRight: '12px',
-                  cursor: 'pointer',
-                }}
-              />
-              Patient understands exercise instructions
-            </label>
-          </div>
-        </div>
-
         {/* Action Buttons */}
         <div style={{
           display: 'flex',
@@ -515,41 +418,173 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             size="lg"
             onClick={handleStartExercise}
             style={{ flex: 1 }}
-            disabled={!allContraindicationsChecked}
           >
-            {allContraindicationsChecked ? 'Start Exercise →' : 'Complete Checklist First'}
+            Start Exercise →
           </Button>
         </div>
 
-        {/* Preview Target */}
-        <div style={{
-          marginTop: '32px',
-          padding: '40px',
-          backgroundColor: '#F7FAFC',
-          borderRadius: '12px',
-          border: '1px solid #E2E8F0',
-          textAlign: 'center',
-        }}>
-          <p style={{
-            fontSize: '0.8rem',
-            color: '#718096',
-            marginBottom: '16px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            fontWeight: '600',
-          }}>
-            Target Preview
-          </p>
-          <div style={{
-            fontSize: '72px',
-            fontWeight: '700',
-            color: '#1A202C',
-            fontFamily: 'monospace',
-          }}>
-            {targetSymbol}
-          </div>
-        </div>
       </motion.div>
+
+      {/* Contraindications Modal */}
+      {showContraindications && !allContraindicationsChecked && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: isMobile ? '24px' : '32px',
+              maxWidth: '500px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            }}
+          >
+            <h3 style={{
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: '#DC2626',
+              marginBottom: '16px',
+            }}>
+              ⚠️ Safety Checklist Required
+            </h3>
+            <p style={{
+              fontSize: '1rem',
+              color: '#4A5568',
+              marginBottom: '24px',
+              lineHeight: '1.6',
+            }}>
+              Please complete all safety checks before starting the exercise. This ensures patient safety and appropriate use of vestibular rehabilitation.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                fontSize: '0.95rem',
+                color: '#2D3748',
+                cursor: 'pointer',
+                padding: '12px',
+                backgroundColor: contraindicationsChecked[0] ? '#F0FDF4' : '#F7FAFC',
+                borderRadius: '8px',
+                border: `2px solid ${contraindicationsChecked[0] ? '#10B981' : '#E2E8F0'}`,
+                transition: 'all 0.2s',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={contraindicationsChecked[0]}
+                  onChange={(e) => {
+                    const newChecked = [...contraindicationsChecked];
+                    newChecked[0] = e.target.checked;
+                    setContraindicationsChecked(newChecked);
+                  }}
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    marginRight: '12px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                />
+                <span>Patient has been cleared for vestibular rehabilitation</span>
+              </label>
+              <label style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                fontSize: '0.95rem',
+                color: '#2D3748',
+                cursor: 'pointer',
+                padding: '12px',
+                backgroundColor: contraindicationsChecked[1] ? '#F0FDF4' : '#F7FAFC',
+                borderRadius: '8px',
+                border: `2px solid ${contraindicationsChecked[1] ? '#10B981' : '#E2E8F0'}`,
+                transition: 'all 0.2s',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={contraindicationsChecked[1]}
+                  onChange={(e) => {
+                    const newChecked = [...contraindicationsChecked];
+                    newChecked[1] = e.target.checked;
+                    setContraindicationsChecked(newChecked);
+                  }}
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    marginRight: '12px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                />
+                <span>No active BPPV or cervical spine instability</span>
+              </label>
+              <label style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                fontSize: '0.95rem',
+                color: '#2D3748',
+                cursor: 'pointer',
+                padding: '12px',
+                backgroundColor: contraindicationsChecked[2] ? '#F0FDF4' : '#F7FAFC',
+                borderRadius: '8px',
+                border: `2px solid ${contraindicationsChecked[2] ? '#10B981' : '#E2E8F0'}`,
+                transition: 'all 0.2s',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={contraindicationsChecked[2]}
+                  onChange={(e) => {
+                    const newChecked = [...contraindicationsChecked];
+                    newChecked[2] = e.target.checked;
+                    setContraindicationsChecked(newChecked);
+                  }}
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    marginRight: '12px',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                />
+                <span>Patient understands exercise instructions</span>
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column' : 'row' }}>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setShowContraindications(false)}
+                style={{ flex: 1 }}
+              >
+                Go Back
+              </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleStartExercise}
+                style={{ flex: 1 }}
+                disabled={!allContraindicationsChecked}
+              >
+                {allContraindicationsChecked ? 'Start Exercise →' : 'Complete All Items'}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
