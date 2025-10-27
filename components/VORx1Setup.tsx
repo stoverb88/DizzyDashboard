@@ -489,7 +489,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
       </motion.div>
 
       {/* Contraindications Modal */}
-      {showContraindications && !allContraindicationsChecked && (
+      {showContraindications && (
         <div
           style={{
             position: 'fixed',
