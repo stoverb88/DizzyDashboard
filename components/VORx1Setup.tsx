@@ -243,7 +243,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
 
           {/* Cadence */}
           <h3 style={sectionTitleStyle}>Cadence (Beats Per Minute)</h3>
-          <div style={sliderContainerStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px' }}>
             <button
               style={incrementButtonStyle}
               onClick={() => handleCadenceChange(cadence - 10)}
@@ -252,7 +252,30 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               −
             </button>
-            <div style={valueDisplayStyle}>{cadence}</div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={valueDisplayStyle}>{cadence}</div>
+              <div style={{ width: '100%', marginTop: '8px' }}>
+                <input
+                  type="range"
+                  min="60"
+                  max="120"
+                  step="5"
+                  value={cadence}
+                  onChange={(e) => handleCadenceChange(parseInt(e.target.value))}
+                  style={{ ...sliderStyle, width: '100%' }}
+                />
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.8rem',
+                  color: '#A0AEC0',
+                  marginTop: '4px',
+                }}>
+                  <span>60 BPM</span>
+                  <span>120 BPM</span>
+                </div>
+              </div>
+            </div>
             <button
               style={incrementButtonStyle}
               onClick={() => handleCadenceChange(cadence + 10)}
@@ -262,31 +285,10 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               +
             </button>
           </div>
-          <div style={{ marginTop: '12px', width: '100%' }}>
-            <input
-              type="range"
-              min="60"
-              max="120"
-              step="5"
-              value={cadence}
-              onChange={(e) => handleCadenceChange(parseInt(e.target.value))}
-              style={{ ...sliderStyle, width: '100%' }}
-            />
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '0.8rem',
-              color: '#A0AEC0',
-              marginTop: '4px',
-            }}>
-              <span>60 BPM</span>
-              <span>120 BPM</span>
-            </div>
-          </div>
 
           {/* Duration */}
           <h3 style={sectionTitleStyle}>Duration (Seconds)</h3>
-          <div style={sliderContainerStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px' }}>
             <button
               style={incrementButtonStyle}
               onClick={() => handleDurationChange(duration - 10)}
@@ -295,7 +297,30 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               −
             </button>
-            <div style={valueDisplayStyle}>{duration}s</div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={valueDisplayStyle}>{duration}s</div>
+              <div style={{ width: '100%', marginTop: '8px' }}>
+                <input
+                  type="range"
+                  min="30"
+                  max="120"
+                  step="10"
+                  value={duration}
+                  onChange={(e) => handleDurationChange(parseInt(e.target.value))}
+                  style={{ ...durationSliderStyle, width: '100%' }}
+                />
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.8rem',
+                  color: '#A0AEC0',
+                  marginTop: '4px',
+                }}>
+                  <span>30 sec</span>
+                  <span>120 sec</span>
+                </div>
+              </div>
+            </div>
             <button
               style={incrementButtonStyle}
               onClick={() => handleDurationChange(duration + 10)}
@@ -304,27 +329,6 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               +
             </button>
-          </div>
-          <div style={{ marginTop: '12px', width: '100%' }}>
-            <input
-              type="range"
-              min="30"
-              max="120"
-              step="10"
-              value={duration}
-              onChange={(e) => handleDurationChange(parseInt(e.target.value))}
-              style={{ ...durationSliderStyle, width: '100%' }}
-            />
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '0.8rem',
-              color: '#A0AEC0',
-              marginTop: '4px',
-            }}>
-              <span>30 sec</span>
-              <span>120 sec</span>
-            </div>
           </div>
 
           {/* Audio Cues */}
@@ -336,15 +340,15 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {/* Upper lip */}
-                  <path d="M4 10 Q7 8 10 10 Q13 8 16 10"></path>
-                  {/* Lower lip */}
-                  <path d="M4 10 Q7 12 10 10 Q13 12 16 10"></path>
-                  {/* Mouth opening (inside) */}
-                  <ellipse cx="10" cy="10" rx="4" ry="1.5" fill="currentColor" opacity="0.2"></ellipse>
-                  {/* Sound waves emanating from mouth */}
-                  <path d="M18 8 Q20 10 18 12"></path>
-                  <path d="M21 6 Q24 10 21 14"></path>
+                  {/* Side profile head outline */}
+                  <path d="M8 4 Q10 3 12 4 L12 8 Q12 10 10 11 L10 14 Q10 16 8 17 Q6 16 6 14 L6 8 Q6 6 8 4"></path>
+                  {/* Nose */}
+                  <path d="M12 8 L14 10 L13 11"></path>
+                  {/* Mouth (open, speaking) */}
+                  <path d="M10 14 Q11 15 10 16"></path>
+                  {/* Sound waves from mouth */}
+                  <path d="M15 13 Q17 14 15 15"></path>
+                  <path d="M18 12 Q21 14 18 16"></path>
                 </svg>
                 <span>Voice</span>
               </div>
