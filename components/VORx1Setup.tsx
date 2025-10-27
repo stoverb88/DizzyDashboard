@@ -37,12 +37,18 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load checklist completion status from localStorage
+  // Load checklist completion status from localStorage on mount
   React.useEffect(() => {
-    const completed = localStorage.getItem('vorx1-checklist-completed');
-    if (completed === 'true') {
-      setChecklistCompleted(true);
-      setContraindicationsChecked([true, true, true]);
+    try {
+      const completed = localStorage.getItem('vorx1-checklist-completed');
+      console.log('Loading checklist status from localStorage:', completed);
+      if (completed === 'true') {
+        setChecklistCompleted(true);
+        setContraindicationsChecked([true, true, true]);
+        console.log('Checklist already completed - will skip modal');
+      }
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
     }
   }, []);
 
@@ -57,8 +63,11 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
   const allContraindicationsChecked = contraindicationsChecked.every(checked => checked);
 
   const handleStartExercise = () => {
+    console.log('Start Exercise clicked, checklistCompleted:', checklistCompleted, 'allChecked:', allContraindicationsChecked);
+
     // If checklist already completed (from localStorage), start immediately
     if (checklistCompleted) {
+      console.log('Checklist was previously completed, starting exercise immediately');
       onStartExercise({
         targetSymbol,
         orientation,
@@ -71,11 +80,13 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
 
     // Otherwise, show checklist modal if not all checked
     if (!allContraindicationsChecked) {
+      console.log('Not all items checked, showing modal');
       setShowContraindications(true);
       return;
     }
 
     // All checked, start exercise immediately
+    console.log('All items checked, starting exercise');
     onStartExercise({
       targetSymbol,
       orientation,
@@ -86,14 +97,19 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
   };
 
   const handleModalStartExercise = () => {
+    console.log('Modal Start Exercise clicked, all checked:', allContraindicationsChecked);
+
     if (!allContraindicationsChecked) {
+      console.log('Not all items checked, returning');
       return;
     }
 
     // Save completion status to localStorage
+    console.log('Saving checklist completion to localStorage');
     localStorage.setItem('vorx1-checklist-completed', 'true');
 
     // Start exercise immediately - this will unmount this component
+    console.log('Starting exercise with params:', { targetSymbol, orientation, cadence, duration, audioType });
     onStartExercise({
       targetSymbol,
       orientation,
