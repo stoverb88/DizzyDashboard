@@ -106,7 +106,13 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
 
     // Save completion status to localStorage
     console.log('Saving checklist completion to localStorage');
-    localStorage.setItem('vorx1-checklist-completed', 'true');
+    try {
+      localStorage.setItem('vorx1-checklist-completed', 'true');
+      const saved = localStorage.getItem('vorx1-checklist-completed');
+      console.log('Verified saved value:', saved);
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
 
     // Start exercise immediately - this will unmount this component
     console.log('Starting exercise with params:', { targetSymbol, orientation, cadence, duration, audioType });
