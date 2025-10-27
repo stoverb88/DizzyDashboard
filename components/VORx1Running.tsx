@@ -166,7 +166,6 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     justifyContent: 'center',
     backgroundColor: '#F7FAFC',
     position: 'relative',
-    padding: '20px',
     overflow: 'hidden',
   };
 
@@ -204,16 +203,6 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     justifyContent: 'flex-start',
     paddingLeft: '16px',
     borderRadius: '8px',
-  };
-
-  const beatCountStyle: React.CSSProperties = {
-    position: 'fixed',
-    bottom: '180px',
-    fontSize: '1rem',
-    color: '#718096',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
   };
 
   const stopButtonStyle: React.CSSProperties = {
