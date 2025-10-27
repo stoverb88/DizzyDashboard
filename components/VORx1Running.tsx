@@ -19,6 +19,7 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
   const [elapsed, setElapsed] = useState(0);
   const [currentBeat, setCurrentBeat] = useState(0);
   const [isPulsing, setIsPulsing] = useState(false);
+  const [currentDirection, setCurrentDirection] = useState<'left' | 'right' | 'up' | 'down'>('left');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const beatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const wakeLockRef = useRef<any>(null);
@@ -64,6 +65,8 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     } else if (phase === 'countdown' && countdown === 0) {
       // Start the exercise
       setPhase('running');
+      // Initialize direction
+      setCurrentDirection(params.orientation === 'horizontal' ? 'left' : 'up');
       if (params.audioType === 'voice') {
         console.log('Voice: Start exercise now');
       }
@@ -106,7 +109,18 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
 
       // Metronome beats
       beatIntervalRef.current = setInterval(() => {
-        setCurrentBeat((prev) => prev + 1);
+        setCurrentBeat((prev) => {
+          const nextBeat = prev + 1;
+
+          // Alternate direction with each beat
+          if (params.orientation === 'horizontal') {
+            setCurrentDirection(nextBeat % 2 === 1 ? 'left' : 'right');
+          } else {
+            setCurrentDirection(nextBeat % 2 === 1 ? 'up' : 'down');
+          }
+
+          return nextBeat;
+        });
         setIsPulsing(true);
 
         // Play beat sound
@@ -252,11 +266,25 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
               height="40"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#A0AEC0"
+              stroke={
+                isPulsing &&
+                ((params.orientation === 'horizontal' && currentDirection === 'left') ||
+                 (params.orientation === 'vertical' && currentDirection === 'up'))
+                  ? '#2D3748'
+                  : '#A0AEC0'
+              }
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ opacity: 0.4 }}
+              style={{
+                opacity:
+                  isPulsing &&
+                  ((params.orientation === 'horizontal' && currentDirection === 'left') ||
+                   (params.orientation === 'vertical' && currentDirection === 'up'))
+                    ? 0.9
+                    : 0.3,
+                transition: 'all 0.1s ease',
+              }}
             >
               {params.orientation === 'horizontal' ? (
                 <>
@@ -282,11 +310,25 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
               height="40"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#A0AEC0"
+              stroke={
+                isPulsing &&
+                ((params.orientation === 'horizontal' && currentDirection === 'right') ||
+                 (params.orientation === 'vertical' && currentDirection === 'down'))
+                  ? '#2D3748'
+                  : '#A0AEC0'
+              }
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ opacity: 0.4 }}
+              style={{
+                opacity:
+                  isPulsing &&
+                  ((params.orientation === 'horizontal' && currentDirection === 'right') ||
+                   (params.orientation === 'vertical' && currentDirection === 'down'))
+                    ? 0.9
+                    : 0.3,
+                transition: 'all 0.1s ease',
+              }}
             >
               {params.orientation === 'horizontal' ? (
                 <>
