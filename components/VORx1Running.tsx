@@ -315,13 +315,31 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
 
           {/* Stop Button */}
           <div style={stopButtonStyle}>
-            <Button
-              variant="danger"
-              size="lg"
+            <button
               onClick={handleStop}
+              style={{
+                backgroundColor: '#EF4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '16px 32px',
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#DC2626';
+                e.currentTarget.style.transform = 'scale(0.98)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#EF4444';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
             >
-              ■ Stop Exercise
-            </Button>
+              Stop Exercise
+            </button>
           </div>
         </>
       )}

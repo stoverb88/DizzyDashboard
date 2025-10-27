@@ -398,26 +398,15 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Button */}
         <div style={{
-          display: 'flex',
-          gap: '12px',
           marginTop: '24px',
-          flexDirection: isMobile ? 'column' : 'row',
         }}>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={onBack}
-            style={{ flex: 1 }}
-          >
-            Cancel
-          </Button>
           <Button
             variant="primary"
             size="lg"
             onClick={handleStartExercise}
-            style={{ flex: 1 }}
+            style={{ width: '100%' }}
           >
             Start Exercise →
           </Button>
