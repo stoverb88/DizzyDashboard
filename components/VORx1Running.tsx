@@ -153,6 +153,7 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     backgroundColor: '#F7FAFC',
     position: 'relative',
     padding: '20px',
+    overflow: 'hidden',
   };
 
   const targetStyle: React.CSSProperties = {
@@ -170,13 +171,13 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     backgroundColor: '#E2E8F0',
     borderRadius: '8px',
     position: 'fixed',
-    bottom: '120px',
+    bottom: '180px',
     left: '50%',
     transform: 'translateX(-50%)',
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
   };
 
   const progressBarStyle: React.CSSProperties = {
@@ -186,8 +187,9 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     width: `${progress}%`,
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingRight: '16px',
+    justifyContent: 'flex-start',
+    paddingLeft: '16px',
+    borderRadius: '8px',
   };
 
   const beatCountStyle: React.CSSProperties = {
@@ -202,7 +204,9 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
 
   const stopButtonStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: '40px',
+    bottom: '100px',
+    left: '50%',
+    transform: 'translateX(-50%)',
   };
 
   return (
@@ -231,32 +235,32 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              width: '100%',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
             }}
           >
-            {/* Orientation indicator - top */}
-            <div style={{
-              position: 'fixed',
-              top: '40px',
-              fontSize: '0.9rem',
-              color: '#718096',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              fontWeight: '600',
-            }}>
-              {params.orientation === 'horizontal' ? '← Move Head Horizontally →' : '↑ Move Head Vertically ↓'}
-            </div>
-
             {/* Target Symbol - centered */}
             <div style={targetStyle}>
               {params.targetSymbol}
             </div>
           </motion.div>
+        )}
+
+        {/* Orientation indicator - only show during running phase */}
+        {phase === 'running' && (
+          <div style={{
+            position: 'fixed',
+            top: '80px',
+            fontSize: '0.9rem',
+            color: '#718096',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            fontWeight: '600',
+          }}>
+            {params.orientation === 'horizontal' ? '← Move Head Horizontally →' : '↑ Move Head Vertically ↓'}
+          </div>
         )}
 
         {phase === 'complete' && (
@@ -276,20 +280,9 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
         )}
       </AnimatePresence>
 
-      {/* Progress Bar and Beat Counter - only show during running phase */}
+      {/* Progress Bar - only show during running phase */}
       {phase === 'running' && (
         <>
-          {/* Beat Counter with Pulse Indicator */}
-          <div style={beatCountStyle}>
-            <span>Beat {currentBeat} / {totalBeats}</span>
-            <div style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              backgroundColor: isPulsing ? '#3B82F6' : '#CBD5E0',
-              transition: 'background-color 0.1s ease',
-            }} />
-          </div>
 
           {/* Progress Bar with Embedded Timer */}
           <div style={progressBarContainerStyle}>
