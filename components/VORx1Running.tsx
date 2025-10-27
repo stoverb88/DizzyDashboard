@@ -161,18 +161,22 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     color: '#1A202C',
     fontFamily: 'monospace',
     userSelect: 'none',
-    transition: 'transform 0.1s ease',
-    transform: isPulsing ? 'scale(1.05)' : 'scale(1)',
   };
 
   const progressBarContainerStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: '600px',
-    height: '12px',
+    height: '50px',
     backgroundColor: '#E2E8F0',
-    borderRadius: '6px',
-    overflow: 'hidden',
-    marginTop: '40px',
+    borderRadius: '8px',
+    position: 'fixed',
+    bottom: '120px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   };
 
   const progressBarStyle: React.CSSProperties = {
@@ -180,23 +184,24 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     backgroundColor: '#3B82F6',
     transition: 'width 0.1s linear',
     width: `${progress}%`,
-  };
-
-  const timerStyle: React.CSSProperties = {
-    fontSize: '2rem',
-    fontWeight: '600',
-    color: '#4A5568',
-    marginTop: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingRight: '16px',
   };
 
   const beatCountStyle: React.CSSProperties = {
-    fontSize: '1.2rem',
+    position: 'fixed',
+    bottom: '180px',
+    fontSize: '1rem',
     color: '#718096',
-    marginTop: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
   };
 
   const stopButtonStyle: React.CSSProperties = {
-    position: 'absolute',
+    position: 'fixed',
     bottom: '40px',
   };
 
@@ -229,14 +234,17 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
               width: '100%',
             }}
           >
-            {/* Orientation indicator */}
+            {/* Orientation indicator - top */}
             <div style={{
-              fontSize: '1rem',
+              position: 'fixed',
+              top: '40px',
+              fontSize: '0.9rem',
               color: '#718096',
-              marginBottom: '20px',
               textTransform: 'uppercase',
               letterSpacing: '0.1em',
               fontWeight: '600',
@@ -244,36 +252,10 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
               {params.orientation === 'horizontal' ? '← Move Head Horizontally →' : '↑ Move Head Vertically ↓'}
             </div>
 
-            {/* Target Symbol */}
+            {/* Target Symbol - centered */}
             <div style={targetStyle}>
               {params.targetSymbol}
             </div>
-
-            {/* Progress Bar */}
-            <div style={progressBarContainerStyle}>
-              <div style={progressBarStyle}></div>
-            </div>
-
-            {/* Timer */}
-            <div style={timerStyle}>
-              {remainingSeconds}s remaining
-            </div>
-
-            {/* Beat Counter */}
-            <div style={beatCountStyle}>
-              Beat {currentBeat} / {totalBeats}
-            </div>
-
-            {/* Metronome Pulse Indicator */}
-            <div style={{
-              marginTop: '20px',
-              width: '20px',
-              height: '20px',
-              borderRadius: '50%',
-              backgroundColor: isPulsing ? '#3B82F6' : '#CBD5E0',
-              transition: 'background-color 0.1s ease, transform 0.1s ease',
-              transform: isPulsing ? 'scale(1.3)' : 'scale(1)',
-            }}></div>
           </motion.div>
         )}
 
@@ -294,17 +276,60 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
         )}
       </AnimatePresence>
 
-      {/* Stop Button - only show during running phase */}
+      {/* Progress Bar and Beat Counter - only show during running phase */}
       {phase === 'running' && (
-        <div style={stopButtonStyle}>
-          <Button
-            variant="danger"
-            size="lg"
-            onClick={handleStop}
-          >
-            ■ Stop Exercise
-          </Button>
-        </div>
+        <>
+          {/* Beat Counter with Pulse Indicator */}
+          <div style={beatCountStyle}>
+            <span>Beat {currentBeat} / {totalBeats}</span>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: isPulsing ? '#3B82F6' : '#CBD5E0',
+              transition: 'background-color 0.1s ease',
+            }} />
+          </div>
+
+          {/* Progress Bar with Embedded Timer */}
+          <div style={progressBarContainerStyle}>
+            <div style={progressBarStyle}>
+              {progress > 15 && (
+                <span style={{
+                  color: 'white',
+                  fontSize: '1.2rem',
+                  fontWeight: '600',
+                  fontFamily: 'monospace',
+                }}>
+                  {remainingSeconds}s
+                </span>
+              )}
+            </div>
+            {progress <= 15 && (
+              <span style={{
+                position: 'absolute',
+                right: '16px',
+                color: '#718096',
+                fontSize: '1.2rem',
+                fontWeight: '600',
+                fontFamily: 'monospace',
+              }}>
+                {remainingSeconds}s
+              </span>
+            )}
+          </div>
+
+          {/* Stop Button */}
+          <div style={stopButtonStyle}>
+            <Button
+              variant="danger"
+              size="lg"
+              onClick={handleStop}
+            >
+              ■ Stop Exercise
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );
