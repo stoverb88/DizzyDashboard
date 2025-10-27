@@ -267,17 +267,37 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
       {phase === 'running' && (
         <div style={{
           position: 'fixed',
-          top: '100px',
+          top: '80px',
           left: '50%',
           transform: 'translateX(-50%)',
-          fontSize: '0.75rem',
-          color: '#A0AEC0',
-          textTransform: 'uppercase',
-          letterSpacing: '0.15em',
-          fontWeight: '500',
-          opacity: 0.6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          opacity: 0.5,
         }}>
-          {params.orientation === 'horizontal' ? 'HORIZONTAL' : 'VERTICAL'}
+          {params.orientation === 'horizontal' ? (
+            <>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </>
+          ) : (
+            <>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
+              </svg>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="19 12 12 19 5 12"></polyline>
+              </svg>
+            </>
+          )}
         </div>
       )}
 
