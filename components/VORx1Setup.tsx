@@ -648,7 +648,11 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               <motion.button
                 whileHover={{ scale: allContraindicationsChecked ? 1.05 : 1 }}
                 whileTap={{ scale: allContraindicationsChecked ? 0.95 : 1 }}
-                onClick={handleModalStartExercise}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleModalStartExercise();
+                }}
                 disabled={!allContraindicationsChecked}
                 style={{
                   flex: 1,
@@ -661,6 +665,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
                   fontWeight: '500',
                   cursor: allContraindicationsChecked ? 'pointer' : 'not-allowed',
                   opacity: allContraindicationsChecked ? 1 : 0.6,
+                  pointerEvents: allContraindicationsChecked ? 'auto' : 'none',
                 }}
               >
                 {allContraindicationsChecked ? 'Start Exercise →' : 'Complete All Items'}
