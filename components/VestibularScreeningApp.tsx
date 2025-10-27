@@ -9,10 +9,12 @@ import { EyeIcon } from "./icons/EyeIcon";
 import { LightbulbIcon } from "./icons/LightbulbIcon";
 import { BookIcon } from "./icons/BookIcon";
 import { BandageIcon } from "./icons/BandageIcon";
+import { ActivityIcon } from "./icons/ActivityIcon";
 import { ManeuversTab } from "./ManeuversTab";
 import { HintsTab } from "./HintsTab";
 import { DiagnosticsTab } from "./DiagnosticsTab";
 import { EvalTab } from "./EvalTab";
+import { ExercisesTab } from "./ExercisesTab";
 import { SplashScreen } from './SplashScreen';
 import { PostSplashOptions } from './PostSplashOptions';
 import { FindChartNote } from './FindChartNote';
@@ -195,7 +197,8 @@ function VestibularScreeningAppContent() {
     { id: "oculomotor", label: "Oculomotor", icon: <EyeIcon /> },
     { id: "hints", label: "HINTS", icon: <LightbulbIcon /> },
     { id: "diagnosticCriteria", label: "Diagnostics", icon: <BookIcon /> },
-    { id: "maneuvers", label: "Maneuvers", icon: <BandageIcon /> }
+    { id: "maneuvers", label: "Maneuvers", icon: <BandageIcon /> },
+    { id: "exercises", label: "Exercises", icon: <ActivityIcon /> }
   ];
 
   const handleTabChange = (direction: 'next' | 'prev') => {
@@ -353,6 +356,19 @@ function VestibularScreeningAppContent() {
                         style={{ height: '100%' }}
                       >
                         <ManeuversTab />
+                      </motion.div>
+                    )}
+
+                    {activeTab === "exercises" && (
+                      <motion.div
+                        key="exercises"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        style={{ height: '100%' }}
+                      >
+                        <ExercisesTab />
                       </motion.div>
                     )}
                   </AnimatePresence>
