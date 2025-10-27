@@ -65,7 +65,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    padding: isMobile ? '20px' : '32px',
+    padding: isMobile ? '12px' : '20px',
     overflowY: 'auto',
   };
 
@@ -73,23 +73,23 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
     fontSize: isMobile ? '1.5rem' : '1.8rem',
     fontWeight: '700',
     color: '#1A202C',
-    marginBottom: '8px',
+    marginBottom: '4px',
   };
 
   const sectionTitleStyle: React.CSSProperties = {
     fontSize: '1rem',
     fontWeight: '600',
     color: '#2D3748',
-    marginTop: '24px',
-    marginBottom: '12px',
+    marginTop: '16px',
+    marginBottom: '8px',
   };
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: '#ffffff',
     border: '1px solid #E2E8F0',
     borderRadius: '12px',
-    padding: isMobile ? '20px' : '24px',
-    marginBottom: '16px',
+    padding: isMobile ? '16px' : '20px',
+    marginBottom: '12px',
   };
 
   const sliderContainerStyle: React.CSSProperties = {
@@ -168,7 +168,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
         transition={{ duration: 0.3 }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
           <button
             onClick={onBack}
             style={{
@@ -197,10 +197,10 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
         </div>
 
         <p style={{
-          fontSize: '0.95rem',
+          fontSize: '0.9rem',
           color: '#718096',
-          marginBottom: '24px',
-          lineHeight: '1.5',
+          marginBottom: '12px',
+          lineHeight: '1.4',
         }}>
           Configure parameters for gaze stabilization exercise. Patient maintains visual focus on a stationary target while turning the head at a controlled cadence.
         </p>
@@ -208,7 +208,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
         {/* Parameter Card */}
         <div style={cardStyle}>
           {/* Target Symbol */}
-          <h3 style={sectionTitleStyle}>Target Symbol</h3>
+          <h3 style={{ ...sectionTitleStyle, marginTop: 0 }}>Target Symbol</h3>
           <div style={buttonGroupStyle}>
             <button
               style={radioButtonStyle(targetSymbol === 'A')}
@@ -400,7 +400,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
 
         {/* Action Button */}
         <div style={{
-          marginTop: '24px',
+          marginTop: '16px',
         }}>
           <motion.button
             whileHover={{ scale: 1.05 }}
