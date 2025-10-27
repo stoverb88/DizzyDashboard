@@ -402,14 +402,24 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
         <div style={{
           marginTop: '24px',
         }}>
-          <Button
-            variant="primary"
-            size="lg"
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleStartExercise}
-            style={{ width: '100%' }}
+            style={{
+              width: '100%',
+              padding: '12px 30px',
+              borderRadius: '10px',
+              border: 'none',
+              backgroundColor: '#2D3748',
+              color: 'white',
+              fontSize: '16px',
+              fontWeight: '500',
+              cursor: 'pointer',
+            }}
           >
             Start Exercise →
-          </Button>
+          </motion.button>
         </div>
 
       </motion.div>
@@ -553,23 +563,44 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               </label>
             </div>
             <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column' : 'row' }}>
-              <Button
-                variant="outline"
-                size="lg"
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setShowContraindications(false)}
-                style={{ flex: 1 }}
+                style={{
+                  flex: 1,
+                  padding: '12px 30px',
+                  borderRadius: '10px',
+                  border: '2px solid #E2E8F0',
+                  backgroundColor: 'white',
+                  color: '#2D3748',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
               >
                 Go Back
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: allContraindicationsChecked ? 1.05 : 1 }}
+                whileTap={{ scale: allContraindicationsChecked ? 0.95 : 1 }}
                 onClick={handleStartExercise}
-                style={{ flex: 1 }}
                 disabled={!allContraindicationsChecked}
+                style={{
+                  flex: 1,
+                  padding: '12px 30px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: allContraindicationsChecked ? '#2D3748' : '#CBD5E0',
+                  color: 'white',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  cursor: allContraindicationsChecked ? 'pointer' : 'not-allowed',
+                  opacity: allContraindicationsChecked ? 1 : 0.6,
+                }}
               >
                 {allContraindicationsChecked ? 'Start Exercise →' : 'Complete All Items'}
-              </Button>
+              </motion.button>
             </div>
           </motion.div>
         </div>
