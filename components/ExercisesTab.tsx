@@ -64,8 +64,14 @@ export function ExercisesTab() {
   };
 
   const handleStartExercise = (params: VORx1Parameters) => {
+    console.log('ExercisesTab: handleStartExercise called with params:', params);
+    // Set params first, then view in a callback to ensure params are set
     setExerciseParams(params);
-    setCurrentView('vorx1-running');
+    // Use setTimeout to ensure state update completes before changing view
+    setTimeout(() => {
+      setCurrentView('vorx1-running');
+      console.log('ExercisesTab: Set view to vorx1-running');
+    }, 0);
   };
 
   const handleExerciseComplete = () => {
