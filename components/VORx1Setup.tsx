@@ -262,7 +262,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               +
             </button>
           </div>
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ marginTop: '12px', width: '100%' }}>
             <input
               type="range"
               min="60"
@@ -270,7 +270,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               step="5"
               value={cadence}
               onChange={(e) => handleCadenceChange(parseInt(e.target.value))}
-              style={sliderStyle}
+              style={{ ...sliderStyle, width: '100%' }}
             />
             <div style={{
               display: 'flex',
@@ -305,7 +305,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               +
             </button>
           </div>
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ marginTop: '12px', width: '100%' }}>
             <input
               type="range"
               min="30"
@@ -313,7 +313,7 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               step="10"
               value={duration}
               onChange={(e) => handleDurationChange(parseInt(e.target.value))}
-              style={durationSliderStyle}
+              style={{ ...durationSliderStyle, width: '100%' }}
             />
             <div style={{
               display: 'flex',
@@ -336,13 +336,15 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {/* Head/Face */}
-                  <circle cx="9" cy="9" r="6"></circle>
-                  {/* Mouth (talking) */}
-                  <path d="M7 9 Q9 11 11 9"></path>
+                  {/* Upper lip */}
+                  <path d="M4 10 Q7 8 10 10 Q13 8 16 10"></path>
+                  {/* Lower lip */}
+                  <path d="M4 10 Q7 12 10 10 Q13 12 16 10"></path>
+                  {/* Mouth opening (inside) */}
+                  <ellipse cx="10" cy="10" rx="4" ry="1.5" fill="currentColor" opacity="0.2"></ellipse>
                   {/* Sound waves emanating from mouth */}
-                  <path d="M14 7 Q16 9 14 11"></path>
-                  <path d="M17 5 Q20 9 17 13"></path>
+                  <path d="M18 8 Q20 10 18 12"></path>
+                  <path d="M21 6 Q24 10 21 14"></path>
                 </svg>
                 <span>Voice</span>
               </div>
