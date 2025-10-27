@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VORx1Setup, VORx1Parameters } from './VORx1Setup';
+import { VORx1Running } from './VORx1Running';
 
 type ExerciseView = 'library' | 'vorx1-setup' | 'vorx1-running' | 'vorx1-results';
 
@@ -67,13 +68,28 @@ export function ExercisesTab() {
     setCurrentView('vorx1-running');
   };
 
+  const handleExerciseComplete = () => {
+    setCurrentView('vorx1-results');
+  };
+
+  const handleExerciseStop = () => {
+    // Go back to setup to allow adjustments
+    setCurrentView('vorx1-setup');
+  };
+
   // Render different views based on state
   if (currentView === 'vorx1-setup') {
     return <VORx1Setup onBack={handleBackToLibrary} onStartExercise={handleStartExercise} />;
   }
 
-  if (currentView === 'vorx1-running') {
-    return <div>Exercise Running View - Coming Soon</div>;
+  if (currentView === 'vorx1-running' && exerciseParams) {
+    return (
+      <VORx1Running
+        params={exerciseParams}
+        onComplete={handleExerciseComplete}
+        onStop={handleExerciseStop}
+      />
+    );
   }
 
   if (currentView === 'vorx1-results') {
