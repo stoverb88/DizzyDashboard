@@ -95,18 +95,20 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
   const sliderContainerStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
+    gap: '12px',
     marginTop: '12px',
+    width: '100%',
   };
 
   const sliderStyle: React.CSSProperties = {
     flex: 1,
-    height: '6px',
-    borderRadius: '3px',
+    height: '8px',
+    borderRadius: '4px',
     appearance: 'none',
     background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${((cadence - 60) / 60) * 100}%, #E2E8F0 ${((cadence - 60) / 60) * 100}%, #E2E8F0 100%)`,
     outline: 'none',
     cursor: 'pointer',
+    minWidth: 0,
   };
 
   const durationSliderStyle: React.CSSProperties = {
@@ -153,8 +155,9 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
     fontSize: '1.5rem',
     fontWeight: '700',
     color: '#1A202C',
-    minWidth: '80px',
+    minWidth: '70px',
     textAlign: 'center',
+    flexShrink: 0,
   };
 
   return (
@@ -331,19 +334,39 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
               style={radioButtonStyle(audioType === 'voice')}
               onClick={() => setAudioType('voice')}
             >
-              🔊 Voice
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                </svg>
+                <span>Voice</span>
+              </div>
             </button>
             <button
               style={radioButtonStyle(audioType === 'beep')}
               onClick={() => setAudioType('beep')}
             >
-              🔔 Beep
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+                <span>Beep</span>
+              </div>
             </button>
             <button
               style={radioButtonStyle(audioType === 'silent')}
               onClick={() => setAudioType('silent')}
             >
-              🔇 Silent
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <line x1="23" y1="9" x2="17" y2="15"></line>
+                  <line x1="17" y1="9" x2="23" y2="15"></line>
+                </svg>
+                <span>Silent</span>
+              </div>
             </button>
           </div>
         </div>
