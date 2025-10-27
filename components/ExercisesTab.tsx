@@ -2,9 +2,14 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { VORx1Setup, VORx1Parameters } from './VORx1Setup';
+
+type ExerciseView = 'library' | 'vorx1-setup' | 'vorx1-running' | 'vorx1-results';
 
 export function ExercisesTab() {
   const [isMobile, setIsMobile] = useState(false);
+  const [currentView, setCurrentView] = useState<ExerciseView>('library');
+  const [exerciseParams, setExerciseParams] = useState<VORx1Parameters | null>(null);
 
   React.useEffect(() => {
     const checkMobile = () => {
@@ -49,10 +54,33 @@ export function ExercisesTab() {
   };
 
   const handleVORx1Click = () => {
-    // TODO: Navigate to VORx1 setup screen
-    console.log('VORx1 clicked');
+    setCurrentView('vorx1-setup');
   };
 
+  const handleBackToLibrary = () => {
+    setCurrentView('library');
+    setExerciseParams(null);
+  };
+
+  const handleStartExercise = (params: VORx1Parameters) => {
+    setExerciseParams(params);
+    setCurrentView('vorx1-running');
+  };
+
+  // Render different views based on state
+  if (currentView === 'vorx1-setup') {
+    return <VORx1Setup onBack={handleBackToLibrary} onStartExercise={handleStartExercise} />;
+  }
+
+  if (currentView === 'vorx1-running') {
+    return <div>Exercise Running View - Coming Soon</div>;
+  }
+
+  if (currentView === 'vorx1-results') {
+    return <div>Exercise Results View - Coming Soon</div>;
+  }
+
+  // Default: Exercise Library View
   return (
     <div style={containerStyle}>
       <motion.div
