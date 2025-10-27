@@ -336,9 +336,13 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                  {/* Head/Face */}
+                  <circle cx="9" cy="9" r="6"></circle>
+                  {/* Mouth (talking) */}
+                  <path d="M7 9 Q9 11 11 9"></path>
+                  {/* Sound waves emanating from mouth */}
+                  <path d="M14 7 Q16 9 14 11"></path>
+                  <path d="M17 5 Q20 9 17 13"></path>
                 </svg>
                 <span>Voice</span>
               </div>
@@ -349,8 +353,11 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {/* Speaker */}
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  {/* Sound waves */}
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
                 </svg>
                 <span>Beep</span>
               </div>
@@ -361,7 +368,9 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {/* Speaker */}
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  {/* X through speaker */}
                   <line x1="23" y1="9" x2="17" y2="15"></line>
                   <line x1="17" y1="9" x2="23" y2="15"></line>
                 </svg>
