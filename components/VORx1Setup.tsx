@@ -92,10 +92,8 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
 
     // Save completion status to localStorage
     localStorage.setItem('vorx1-checklist-completed', 'true');
-    setChecklistCompleted(true);
 
-    // Close modal and start exercise immediately
-    setShowContraindications(false);
+    // Start exercise immediately - this will unmount this component
     onStartExercise({
       targetSymbol,
       orientation,
