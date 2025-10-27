@@ -234,33 +234,10 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
             key="running"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
+            style={targetStyle}
           >
-            {/* Target Symbol - centered */}
-            <div style={targetStyle}>
-              {params.targetSymbol}
-            </div>
+            {params.targetSymbol}
           </motion.div>
-        )}
-
-        {/* Orientation indicator - only show during running phase */}
-        {phase === 'running' && (
-          <div style={{
-            position: 'fixed',
-            top: '80px',
-            fontSize: '0.9rem',
-            color: '#718096',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            fontWeight: '600',
-          }}>
-            {params.orientation === 'horizontal' ? '← Move Head Horizontally →' : '↑ Move Head Vertically ↓'}
-          </div>
         )}
 
         {phase === 'complete' && (
@@ -279,6 +256,23 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Orientation indicator - only show during running phase */}
+      {phase === 'running' && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: '0.9rem',
+          color: '#718096',
+          textTransform: 'uppercase',
+          letterSpacing: '0.1em',
+          fontWeight: '600',
+        }}>
+          {params.orientation === 'horizontal' ? '← Move Head Horizontally →' : '↑ Move Head Vertically ↓'}
+        </div>
+      )}
 
       {/* Progress Bar - only show during running phase */}
       {phase === 'running' && (
