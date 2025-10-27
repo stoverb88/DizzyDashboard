@@ -235,14 +235,71 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             style={{
-              ...targetStyle,
               position: 'fixed',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: params.orientation === 'horizontal' ? '60px' : '0',
+              flexDirection: params.orientation === 'horizontal' ? 'row' : 'column',
             }}
           >
-            {params.targetSymbol}
+            {/* Left/Up arrow */}
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#A0AEC0"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ opacity: 0.4 }}
+            >
+              {params.orientation === 'horizontal' ? (
+                <>
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </>
+              ) : (
+                <>
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </>
+              )}
+            </svg>
+
+            {/* Target Symbol */}
+            <div style={targetStyle}>
+              {params.targetSymbol}
+            </div>
+
+            {/* Right/Down arrow */}
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#A0AEC0"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ opacity: 0.4 }}
+            >
+              {params.orientation === 'horizontal' ? (
+                <>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </>
+              ) : (
+                <>
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <polyline points="19 12 12 19 5 12"></polyline>
+                </>
+              )}
+            </svg>
           </motion.div>
         )}
 
@@ -262,44 +319,6 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Orientation indicator - only show during running phase */}
-      {phase === 'running' && (
-        <div style={{
-          position: 'fixed',
-          top: '80px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '20px',
-          opacity: 0.5,
-        }}>
-          {params.orientation === 'horizontal' ? (
-            <>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
-            </>
-          ) : (
-            <>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="19" x2="12" y2="5"></line>
-                <polyline points="5 12 12 5 19 12"></polyline>
-              </svg>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718096" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <polyline points="19 12 12 19 5 12"></polyline>
-              </svg>
-            </>
-          )}
-        </div>
-      )}
 
       {/* Progress Bar - only show during running phase */}
       {phase === 'running' && (
