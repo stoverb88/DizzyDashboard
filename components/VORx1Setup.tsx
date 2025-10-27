@@ -340,15 +340,27 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {/* Side profile head outline */}
-                  <path d="M8 4 Q10 3 12 4 L12 8 Q12 10 10 11 L10 14 Q10 16 8 17 Q6 16 6 14 L6 8 Q6 6 8 4"></path>
+                  {/* Side profile - forehead to top of head */}
+                  <path d="M10 4 Q8 3 6 4"></path>
+                  {/* Back of head */}
+                  <path d="M6 4 Q4 6 4 10 L4 14"></path>
+                  {/* Back of neck to chin */}
+                  <path d="M4 14 Q4 16 5 17 Q6 18 8 18"></path>
+                  {/* Chin to jaw */}
+                  <path d="M8 18 Q11 18 13 16"></path>
+                  {/* Jaw to mouth area */}
+                  <path d="M13 16 L13 13"></path>
+                  {/* Mouth (open) */}
+                  <path d="M13 13 Q14 13 14 12 Q14 11 13 11"></path>
+                  {/* Mouth to nose */}
+                  <path d="M13 11 L13 9"></path>
                   {/* Nose */}
-                  <path d="M12 8 L14 10 L13 11"></path>
-                  {/* Mouth (open, speaking) */}
-                  <path d="M10 14 Q11 15 10 16"></path>
+                  <path d="M13 9 Q15 9 15 8 L14 7"></path>
+                  {/* Nose bridge to forehead */}
+                  <path d="M13 9 L12 6 Q11 4 10 4"></path>
                   {/* Sound waves from mouth */}
-                  <path d="M15 13 Q17 14 15 15"></path>
-                  <path d="M18 12 Q21 14 18 16"></path>
+                  <path d="M16 11 Q18 12 16 13"></path>
+                  <path d="M19 10 Q22 12 19 14"></path>
                 </svg>
                 <span>Voice</span>
               </div>
