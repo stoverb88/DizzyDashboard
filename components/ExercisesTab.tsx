@@ -11,6 +11,7 @@ export function ExercisesTab() {
   const [isMobile, setIsMobile] = useState(false);
   const [currentView, setCurrentView] = useState<ExerciseView>('library');
   const [exerciseParams, setExerciseParams] = useState<VORx1Parameters | null>(null);
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
 
   React.useEffect(() => {
     const checkMobile = () => {
@@ -20,6 +21,19 @@ export function ExercisesTab() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Check if user has seen the disclaimer
+  React.useEffect(() => {
+    const disclaimerSeen = localStorage.getItem('exercises-disclaimer-seen');
+    if (disclaimerSeen !== 'true') {
+      setShowDisclaimerModal(true);
+    }
+  }, []);
+
+  const handleDisclaimerAccept = () => {
+    localStorage.setItem('exercises-disclaimer-seen', 'true');
+    setShowDisclaimerModal(false);
+  };
 
   const containerStyle: React.CSSProperties = {
     height: '100%',
@@ -114,25 +128,6 @@ export function ExercisesTab() {
         <p style={subtitleStyle}>
           Clinician-guided rehabilitation exercises with customizable parameters and audio cues.
         </p>
-
-        {/* Disclaimer Notice */}
-        <div style={{
-          backgroundColor: '#FEF3C7',
-          border: '1px solid #FCD34D',
-          borderRadius: '8px',
-          padding: '16px',
-          marginBottom: '24px',
-        }}>
-          <p style={{
-            fontSize: '0.9rem',
-            color: '#92400E',
-            margin: 0,
-            lineHeight: '1.5',
-          }}>
-            <strong>Clinical Support Tool:</strong> This module provides guided exercise timing and documentation support.
-            It does not diagnose conditions or prescribe treatment. All exercise parameters must be determined by a qualified healthcare professional.
-          </p>
-        </div>
 
         {/* VORx1 Exercise Card */}
         <motion.div
@@ -246,6 +241,75 @@ export function ExercisesTab() {
           </div>
         </div>
       </motion.div>
+
+      {/* Disclaimer Modal */}
+      {showDisclaimerModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: isMobile ? '24px' : '32px',
+              maxWidth: '500px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: '#1A202C',
+              marginBottom: '16px',
+            }}>
+              Clinical Support Tool
+            </h3>
+            <p style={{
+              fontSize: '1rem',
+              color: '#4A5568',
+              marginBottom: '24px',
+              lineHeight: '1.6',
+            }}>
+              This module provides guided exercise timing and documentation support. It does not diagnose conditions or prescribe treatment. All exercise parameters must be determined by a qualified healthcare professional.
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleDisclaimerAccept}
+              style={{
+                width: '100%',
+                padding: '12px 30px',
+                borderRadius: '10px',
+                border: 'none',
+                backgroundColor: '#2D3748',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: '500',
+                cursor: 'pointer',
+              }}
+            >
+              I Understand
+            </motion.button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
