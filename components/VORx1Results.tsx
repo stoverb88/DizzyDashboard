@@ -110,7 +110,6 @@ export function VORx1Results({ params, onComplete, onRepeatOtherDirection }: VOR
     width: '100%',
     padding: '14px 24px',
     borderRadius: '10px',
-    border: 'none',
     backgroundColor: isPrimary ? '#2D3748' : '#ffffff',
     color: isPrimary ? 'white' : '#2D3748',
     fontSize: '1rem',
