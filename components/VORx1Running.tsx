@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/Button';
 import { VORx1Parameters } from './VORx1Setup';
+import { MetronomeEngine } from '../utils/MetronomeEngine';
 
 interface VORx1RunningProps {
   params: VORx1Parameters;
@@ -23,6 +24,7 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const beatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const wakeLockRef = useRef<any>(null);
+  const metronomeRef = useRef<MetronomeEngine | null>(null);
 
   const totalBeats = Math.floor((params.duration * params.cadence) / 60);
   const beatInterval = 60000 / params.cadence; // milliseconds per beat
@@ -55,10 +57,6 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
     if (phase === 'countdown' && countdown > 0) {
       const timer = setTimeout(() => {
         setCountdown(countdown - 1);
-        // Play beep sound (placeholder - will implement audio later)
-        if (params.audioType !== 'silent') {
-          console.log('Beep:', countdown);
-        }
       }, 1000);
 
       return () => clearTimeout(timer);
@@ -67,15 +65,18 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
       setPhase('running');
       // Initialize direction
       setCurrentDirection(params.orientation === 'horizontal' ? 'left' : 'up');
-      if (params.audioType === 'voice') {
-        console.log('Voice: Start exercise now');
-      }
     }
-  }, [phase, countdown, params.audioType]);
+  }, [phase, countdown, params.orientation]);
 
   // Exercise running phase
   useEffect(() => {
     if (phase === 'running') {
+      // Initialize metronome
+      if (!metronomeRef.current && params.audioType !== 'silent') {
+        metronomeRef.current = new MetronomeEngine(params.cadence);
+        console.log('MetronomeEngine initialized at', params.cadence, 'BPM');
+      }
+
       // Timer for elapsed time
       intervalRef.current = setInterval(() => {
         setElapsed((prev) => {
@@ -84,22 +85,19 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
           // Check if exercise is complete
           if (newElapsed >= params.duration * 1000) {
             setPhase('complete');
-            if (params.audioType === 'voice') {
-              console.log('Voice: Stop. Exercise complete.');
+            if (metronomeRef.current) {
+              metronomeRef.current.stop();
             }
             return params.duration * 1000;
           }
 
-          // Voice cues
-          if (params.audioType === 'voice') {
-            const seconds = Math.floor(newElapsed / 1000);
-            const halfwayPoint = Math.floor(params.duration / 2);
-
-            if (seconds === halfwayPoint && newElapsed % 1000 < 100) {
-              console.log('Voice: Halfway there');
-            }
-            if (seconds === params.duration - 5 && newElapsed % 1000 < 100) {
-              console.log('Voice: Five seconds remaining');
+          // Play halfway cue (double beep at higher pitch)
+          const seconds = Math.floor(newElapsed / 1000);
+          const halfwayPoint = Math.floor(params.duration / 2);
+          if (seconds === halfwayPoint && newElapsed % 1000 < 100) {
+            if (metronomeRef.current && params.audioType !== 'silent') {
+              metronomeRef.current.playCue();
+              console.log('Halfway point reached');
             }
           }
 
@@ -107,37 +105,51 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
         });
       }, 100);
 
-      // Metronome beats
-      beatIntervalRef.current = setInterval(() => {
-        setCurrentBeat((prev) => {
-          const nextBeat = prev + 1;
+      // Start audio metronome with callback for visual sync
+      if (metronomeRef.current && params.audioType !== 'silent') {
+        metronomeRef.current.start((beatNumber) => {
+          setCurrentBeat(beatNumber);
 
           // Alternate direction with each beat
           if (params.orientation === 'horizontal') {
-            setCurrentDirection(nextBeat % 2 === 1 ? 'left' : 'right');
+            setCurrentDirection(beatNumber % 2 === 1 ? 'left' : 'right');
           } else {
-            setCurrentDirection(nextBeat % 2 === 1 ? 'up' : 'down');
+            setCurrentDirection(beatNumber % 2 === 1 ? 'up' : 'down');
           }
 
-          return nextBeat;
+          // Visual pulse
+          setIsPulsing(true);
+          setTimeout(() => setIsPulsing(false), 100);
         });
-        setIsPulsing(true);
+      } else {
+        // Fallback visual metronome for silent mode
+        beatIntervalRef.current = setInterval(() => {
+          setCurrentBeat((prev) => {
+            const nextBeat = prev + 1;
 
-        // Play beat sound
-        if (params.audioType !== 'silent') {
-          console.log('Beat:', currentBeat + 1);
-        }
+            // Alternate direction with each beat
+            if (params.orientation === 'horizontal') {
+              setCurrentDirection(nextBeat % 2 === 1 ? 'left' : 'right');
+            } else {
+              setCurrentDirection(nextBeat % 2 === 1 ? 'up' : 'down');
+            }
 
-        // Reset pulse after 100ms
-        setTimeout(() => setIsPulsing(false), 100);
-      }, beatInterval);
+            return nextBeat;
+          });
+          setIsPulsing(true);
+          setTimeout(() => setIsPulsing(false), 100);
+        }, beatInterval);
+      }
 
       return () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         if (beatIntervalRef.current) clearInterval(beatIntervalRef.current);
+        if (metronomeRef.current) {
+          metronomeRef.current.stop();
+        }
       };
     }
-  }, [phase, params.duration, params.cadence, params.audioType, currentBeat, beatInterval]);
+  }, [phase, params.duration, params.cadence, params.audioType, params.orientation, beatInterval]);
 
   // Auto-complete when exercise finishes
   useEffect(() => {
@@ -152,6 +164,11 @@ export function VORx1Running({ params, onComplete, onStop }: VORx1RunningProps) 
   const handleStop = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (beatIntervalRef.current) clearInterval(beatIntervalRef.current);
+    if (metronomeRef.current) {
+      metronomeRef.current.stop();
+      metronomeRef.current.dispose();
+      metronomeRef.current = null;
+    }
     onStop();
   };
 

@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from './ui/Button';
+import { MetronomeEngine } from '../utils/MetronomeEngine';
 
 interface VORx1SetupProps {
   onBack: () => void;
@@ -14,7 +15,7 @@ export interface VORx1Parameters {
   orientation: 'horizontal' | 'vertical';
   cadence: number; // 60-120 BPM
   duration: number; // 30-120 seconds
-  audioType: 'voice' | 'beep' | 'silent';
+  audioType: 'beep' | 'silent';
 }
 
 export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
@@ -23,10 +24,13 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
   const [cadence, setCadence] = useState(90); // BPM
   const [duration, setDuration] = useState(60); // seconds
-  const [audioType, setAudioType] = useState<'voice' | 'beep' | 'silent'>('voice');
+  const [audioType, setAudioType] = useState<'beep' | 'silent'>('beep');
   const [showContraindications, setShowContraindications] = useState(false);
   const [contraindicationsChecked, setContraindicationsChecked] = useState<boolean[]>([false, false, false]);
   const [checklistCompleted, setChecklistCompleted] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const previewMetronomeRef = useRef<MetronomeEngine | null>(null);
+  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
     const checkMobile = () => {
@@ -59,6 +63,53 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
   const handleDurationChange = (value: number) => {
     setDuration(Math.max(30, Math.min(120, value)));
   };
+
+  const handleCadencePreview = () => {
+    if (isPreviewPlaying) {
+      // Stop preview
+      if (previewMetronomeRef.current) {
+        previewMetronomeRef.current.stop();
+        previewMetronomeRef.current.dispose();
+        previewMetronomeRef.current = null;
+      }
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+        previewTimeoutRef.current = null;
+      }
+      setIsPreviewPlaying(false);
+      console.log('Cadence preview stopped');
+    } else {
+      // Start preview for 5 seconds
+      previewMetronomeRef.current = new MetronomeEngine(cadence);
+      previewMetronomeRef.current.start();
+      setIsPreviewPlaying(true);
+      console.log('Cadence preview started at', cadence, 'BPM');
+
+      // Auto-stop after 5 seconds
+      previewTimeoutRef.current = setTimeout(() => {
+        if (previewMetronomeRef.current) {
+          previewMetronomeRef.current.stop();
+          previewMetronomeRef.current.dispose();
+          previewMetronomeRef.current = null;
+        }
+        setIsPreviewPlaying(false);
+        console.log('Cadence preview auto-stopped after 5 seconds');
+      }, 5000);
+    }
+  };
+
+  // Cleanup preview on unmount
+  React.useEffect(() => {
+    return () => {
+      if (previewMetronomeRef.current) {
+        previewMetronomeRef.current.stop();
+        previewMetronomeRef.current.dispose();
+      }
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const allContraindicationsChecked = contraindicationsChecked.every(checked => checked);
 
@@ -306,8 +357,46 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
           </div>
 
           {/* Cadence */}
-          <h3 style={sectionTitleStyle}>Cadence (Beats Per Minute)</h3>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h3 style={sectionTitleStyle}>Cadence (Beats Per Minute)</h3>
+            <button
+              onClick={handleCadencePreview}
+              style={{
+                background: 'transparent',
+                border: `1.5px solid ${isPreviewPlaying ? '#EF4444' : '#CBD5E0'}`,
+                borderRadius: '6px',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                padding: '0',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = isPreviewPlaying ? '#DC2626' : '#A0AEC0';
+                e.currentTarget.style.backgroundColor = '#F7FAFC';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = isPreviewPlaying ? '#EF4444' : '#CBD5E0';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              {isPreviewPlaying ? (
+                // Stop icon
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#EF4444">
+                  <rect x="5" y="5" width="14" height="14" rx="2" />
+                </svg>
+              ) : (
+                // Play icon
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#4A5568">
+                  <polygon points="6 4 20 12 6 20" />
+                </svg>
+              )}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
             <button
               style={incrementButtonStyle}
               onClick={() => handleCadenceChange(cadence - 10)}
@@ -398,37 +487,6 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
           {/* Audio Cues */}
           <h3 style={sectionTitleStyle}>Audio Cues</h3>
           <div style={buttonGroupStyle}>
-            <button
-              style={radioButtonStyle(audioType === 'voice')}
-              onClick={() => setAudioType('voice')}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {/* Side profile - forehead to top of head */}
-                  <path d="M10 4 Q8 3 6 4"></path>
-                  {/* Back of head */}
-                  <path d="M6 4 Q4 6 4 10 L4 14"></path>
-                  {/* Back of neck to chin */}
-                  <path d="M4 14 Q4 16 5 17 Q6 18 8 18"></path>
-                  {/* Chin to jaw */}
-                  <path d="M8 18 Q11 18 13 16"></path>
-                  {/* Jaw to mouth area */}
-                  <path d="M13 16 L13 13"></path>
-                  {/* Mouth (open) */}
-                  <path d="M13 13 Q14 13 14 12 Q14 11 13 11"></path>
-                  {/* Mouth to nose */}
-                  <path d="M13 11 L13 9"></path>
-                  {/* Nose */}
-                  <path d="M13 9 Q15 9 15 8 L14 7"></path>
-                  {/* Nose bridge to forehead */}
-                  <path d="M13 9 L12 6 Q11 4 10 4"></path>
-                  {/* Sound waves from mouth */}
-                  <path d="M16 11 Q18 12 16 13"></path>
-                  <path d="M19 10 Q22 12 19 14"></path>
-                </svg>
-                <span>Voice</span>
-              </div>
-            </button>
             <button
               style={radioButtonStyle(audioType === 'beep')}
               onClick={() => setAudioType('beep')}

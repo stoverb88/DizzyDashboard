@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VORx1Setup, VORx1Parameters } from './VORx1Setup';
 import { VORx1Running } from './VORx1Running';
+import { VORx1Results, VORx1ResultsData } from './VORx1Results';
 
 type ExerciseView = 'library' | 'vorx1-setup' | 'vorx1-running' | 'vorx1-results';
 
@@ -97,6 +98,41 @@ export function ExercisesTab() {
     setCurrentView('vorx1-setup');
   };
 
+  const handleResultsComplete = (results: VORx1ResultsData) => {
+    console.log('Exercise results:', results);
+    // TODO: Store results for chart notes (future enhancement)
+    // Return to exercise library
+    handleBackToLibrary();
+  };
+
+  const handleRepeatOtherDirection = (keepSameCadence: boolean) => {
+    if (!exerciseParams) return;
+
+    // Switch orientation
+    const newOrientation = exerciseParams.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+
+    // Create new parameters with switched orientation
+    const newParams: VORx1Parameters = {
+      ...exerciseParams,
+      orientation: newOrientation,
+      // Keep or reset cadence based on user choice
+      ...(keepSameCadence ? {} : { cadence: 60 }) // Default to 60 if choosing new
+    };
+
+    // If not keeping same cadence, go back to setup for selection
+    if (keepSameCadence) {
+      setExerciseParams(newParams);
+      // Go directly to running phase with same parameters
+      setTimeout(() => {
+        setCurrentView('vorx1-running');
+      }, 0);
+    } else {
+      // Go to setup screen with new orientation pre-selected
+      setExerciseParams(newParams);
+      setCurrentView('vorx1-setup');
+    }
+  };
+
   // Render different views based on state
   if (currentView === 'vorx1-setup') {
     return <VORx1Setup onBack={handleBackToLibrary} onStartExercise={handleStartExercise} />;
@@ -112,8 +148,14 @@ export function ExercisesTab() {
     );
   }
 
-  if (currentView === 'vorx1-results') {
-    return <div>Exercise Results View - Coming Soon</div>;
+  if (currentView === 'vorx1-results' && exerciseParams) {
+    return (
+      <VORx1Results
+        params={exerciseParams}
+        onComplete={handleResultsComplete}
+        onRepeatOtherDirection={handleRepeatOtherDirection}
+      />
+    );
   }
 
   // Default: Exercise Library View
@@ -156,47 +198,11 @@ export function ExercisesTab() {
               <p style={{
                 fontSize: '0.9rem',
                 color: '#4A5568',
-                marginBottom: '12px',
+                marginBottom: '0',
                 lineHeight: '1.5',
               }}>
                 Patient maintains visual focus on a stationary target while turning the head at a controlled cadence.
               </p>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-              }}>
-                <span style={{
-                  fontSize: '0.8rem',
-                  backgroundColor: '#EBF8FF',
-                  color: '#2C5282',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontWeight: '500',
-                }}>
-                  Customizable Cadence
-                </span>
-                <span style={{
-                  fontSize: '0.8rem',
-                  backgroundColor: '#EBF8FF',
-                  color: '#2C5282',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontWeight: '500',
-                }}>
-                  Audio Cues
-                </span>
-                <span style={{
-                  fontSize: '0.8rem',
-                  backgroundColor: '#EBF8FF',
-                  color: '#2C5282',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontWeight: '500',
-                }}>
-                  Auto Note
-                </span>
-              </div>
             </div>
             <div style={{
               fontSize: '1.5rem',
