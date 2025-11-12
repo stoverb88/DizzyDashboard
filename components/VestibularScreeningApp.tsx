@@ -44,10 +44,26 @@ function VestibularScreeningAppContent() {
 
   const isPatient = user?.role === 'PATIENT';
 
+  console.log('[CLIENT] VestibularScreeningApp render:', {
+    sessionLoading,
+    userRole: user?.role,
+    isPatient,
+    appState,
+  });
+
   // Skip splash/options for patients and go directly to exercises
   useEffect(() => {
+    console.log('[CLIENT] useEffect fired:', {
+      sessionLoading,
+      hasUser: !!user,
+      userRole: user?.role,
+      isPatient,
+      willSetExercises: !sessionLoading && user && isPatient,
+    });
+
     if (!sessionLoading && user) {
       if (isPatient) {
+        console.log('[CLIENT] Setting appState to exercises for PATIENT');
         setAppState('exercises');
         setActiveTab('exercises');
       }
