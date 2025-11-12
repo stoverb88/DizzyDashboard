@@ -27,17 +27,32 @@ import {
   exitFullscreen as exitFullscreenUtil,
   addFullscreenChangeListener
 } from '../utils/fullscreenUtils';
+import { useSession } from '../lib/use-session';
 import "../styles/globals.css";
 
 function VestibularScreeningAppContent() {
   const { resetEvalForm } = useEvalContext();
+  const { user, loading: sessionLoading } = useSession();
   const [activeTab, setActiveTab] = useState("questionnaire");
   const [isMobile, setIsMobile] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
-  const [appState, setAppState] = useState<'splash' | 'options' | 'eval' | 'find-chart'>('splash');
+  const [appState, setAppState] = useState<'splash' | 'options' | 'eval' | 'find-chart' | 'exercises'>('splash');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogType, setConfirmDialogType] = useState<'reset' | 'logout'>('reset');
   const [evalKey, setEvalKey] = useState(0); // Key to force EvalTab re-render
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const isPatient = user?.role === 'PATIENT';
+
+  // Skip splash/options for patients and go directly to exercises
+  useEffect(() => {
+    if (!sessionLoading && user) {
+      if (isPatient) {
+        setAppState('exercises');
+        setActiveTab('exercises');
+      }
+    }
+  }, [sessionLoading, user, isPatient]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -168,7 +183,19 @@ function VestibularScreeningAppContent() {
   };
 
   const handleLogoClick = () => {
+    // Patients should see logout dialog when clicking logo from exercises
+    if (isPatient) {
+      setConfirmDialogType('logout');
+      setShowConfirmDialog(true);
+      return;
+    }
+
     if (appState === 'eval') {
+      setConfirmDialogType('reset');
+      setShowConfirmDialog(true);
+    } else if (appState === 'options') {
+      // On options page, clicking logo triggers logout
+      setConfirmDialogType('logout');
       setShowConfirmDialog(true);
     } else {
       setAppState('options');
@@ -190,6 +217,18 @@ function VestibularScreeningAppContent() {
 
   const handleCancelReset = () => {
     setShowConfirmDialog(false);
+  };
+
+  const handleLogout = async () => {
+    setShowConfirmDialog(false);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Still redirect to login even if API call fails
+      window.location.href = '/login';
+    }
   };
 
   const tabs = [
@@ -287,10 +326,10 @@ function VestibularScreeningAppContent() {
 
           <div style={{...dynamicCardStyle}}>
             <AnimatePresence mode="wait">
-              {appState === 'splash' && (
+              {appState === 'splash' && !isPatient && (
                 <SplashScreen key="splash" onDismiss={handleSplashDismiss} />
               )}
-              {appState === 'options' && (
+              {appState === 'options' && !isPatient && (
                   <PostSplashOptions key="options" onStartEval={handleStartEval} onFindChart={handleFindChart} />
               )}
               {appState === 'eval' && (
@@ -377,10 +416,22 @@ function VestibularScreeningAppContent() {
               {appState === 'find-chart' && (
                 <FindChartNote key="find-chart" onBack={handleBackToOptions} />
               )}
+              {appState === 'exercises' && (
+                <motion.div
+                  key="exercises-only"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  style={{ height: '100%' }}
+                >
+                  <ExercisesTab />
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
       </div>
-      {appState === 'eval' && <BottomNavBar tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />}
+      {appState === 'eval' && !isPatient && <BottomNavBar tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />}
       {showConfirmDialog && (
         <div style={{
           position: 'fixed',
@@ -408,20 +459,22 @@ function VestibularScreeningAppContent() {
               textAlign: 'center'
             }}
           >
-            <h3 style={{ 
-              color: '#1A202C', 
+            <h3 style={{
+              color: '#1A202C',
               marginBottom: '15px',
               fontSize: '1.2rem',
               fontWeight: '600'
             }}>
-              Reset Evaluation?
+              {confirmDialogType === 'reset' ? 'Reset Evaluation?' : 'Logout?'}
             </h3>
             <p style={{
               color: '#4A5568',
               marginBottom: '25px',
               lineHeight: '1.5'
             }}>
-              This will clear all your current answers and return you to the main menu. This action cannot be undone.
+              {confirmDialogType === 'reset'
+                ? 'This will clear all your current answers and return you to the main menu. This action cannot be undone.'
+                : 'Are you sure you want to logout?'}
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <Button
@@ -429,14 +482,14 @@ function VestibularScreeningAppContent() {
                 size="md"
                 onClick={handleCancelReset}
               >
-                Cancel
+                {confirmDialogType === 'reset' ? 'Cancel' : 'No'}
               </Button>
               <Button
                 variant="danger"
                 size="md"
-                onClick={handleConfirmReset}
+                onClick={confirmDialogType === 'reset' ? handleConfirmReset : handleLogout}
               >
-                Reset Evaluation
+                {confirmDialogType === 'reset' ? 'Reset Evaluation' : 'Yes'}
               </Button>
             </div>
           </motion.div>

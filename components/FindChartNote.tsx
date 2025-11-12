@@ -14,8 +14,11 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
   const [isCopied, setIsCopied] = useState(false)
 
   const handleFetchNote = async () => {
-    if (chartId.length !== 6) {
-      setError('Please enter a valid 6-digit ID.')
+    // Remove hyphens and spaces for validation
+    const cleanedId = chartId.replace(/[-\s]/g, '')
+
+    if (cleanedId.length !== 8) {
+      setError('Please enter a valid 8-character ID.')
       return
     }
 
@@ -24,13 +27,24 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
     setNarrative('')
 
     try {
-      const response = await fetch(`/api/notes/${chartId}`)
+      const response = await fetch(`/api/notes/${cleanedId}`)
       const data = await response.json()
 
       if (response.ok) {
         setNarrative(data.narrative)
       } else {
-        setError(data.error || 'Failed to retrieve chart note.')
+        // Handle rate limiting messages
+        if (response.status === 429) {
+          if (data.resetAt) {
+            const resetDate = new Date(data.resetAt)
+            const minutesRemaining = Math.ceil((resetDate.getTime() - Date.now()) / 60000)
+            setError(`${data.error} Please wait ${minutesRemaining} minute(s).`)
+          } else {
+            setError(data.error || 'Too many requests. Please try again later.')
+          }
+        } else {
+          setError(data.error || 'Failed to retrieve chart note.')
+        }
       }
     } catch (err) {
       setError('Network error. Please try again.')
@@ -39,10 +53,28 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
     }
   }
 
-  const handleCopyNote = () => {
-    navigator.clipboard.writeText(narrative)
-    setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 2000)
+  const handleCopyNote = async () => {
+    try {
+      await navigator.clipboard.writeText(narrative)
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2000)
+    } catch (err) {
+      // Fallback for when clipboard API fails
+      const textArea = document.createElement('textarea')
+      textArea.value = narrative
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+      } catch (fallbackErr) {
+        setError('Failed to copy to clipboard. Please copy manually.')
+      }
+      document.body.removeChild(textArea)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -123,8 +155,8 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
           marginBottom: '30px',
           lineHeight: '1.5'
         }}>
-          Enter your 6-digit ID to retrieve your chart note. 
-          Notes are available for 24 hours after creation.
+          Enter your 8-character ID to retrieve your chart note.
+          Notes are available for 72 hours after creation.
         </p>
 
         <div style={{ marginBottom: '20px' }}>
@@ -140,10 +172,17 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
           <input
             type="text"
             value={chartId}
-            onChange={(e) => setChartId(e.target.value.toUpperCase())}
+            onChange={(e) => {
+              // Auto-format with hyphen: A3X9-K2M7
+              let value = e.target.value.toUpperCase().replace(/[-\s]/g, '')
+              if (value.length > 4) {
+                value = value.slice(0, 4) + '-' + value.slice(4, 8)
+              }
+              setChartId(value)
+            }}
             onKeyPress={handleKeyPress}
-            maxLength={6}
-            placeholder="Enter 6-digit ID"
+            maxLength={9} // 8 chars + 1 hyphen
+            placeholder="A3X9-K2M7"
             style={{
               width: '100%',
               padding: '12px',
@@ -179,7 +218,7 @@ export function FindChartNote({ onBack }: FindChartNoteProps) {
           size="lg"
           fullWidth
           onClick={handleFetchNote}
-          disabled={isLoading || chartId.length !== 6}
+          disabled={isLoading || chartId.replace(/[-\s]/g, '').length !== 8}
           style={{ marginBottom: '20px' }}
         >
           {isLoading ? 'Retrieving...' : 'Retrieve Chart Note'}
