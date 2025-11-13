@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams } from 'next/navigation';
 import { OculomotorExam } from "./OculomotorExam";
 import { BottomNavBar } from "./BottomNavBar";
 import { ClipboardIcon } from "./icons/ClipboardIcon";
@@ -33,6 +34,7 @@ import "../styles/globals.css";
 function VestibularScreeningAppContent() {
   const { resetEvalForm } = useEvalContext();
   const { user, loading: sessionLoading } = useSession();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("questionnaire");
   const [isMobile, setIsMobile] = useState(false);
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
@@ -41,34 +43,51 @@ function VestibularScreeningAppContent() {
   const [confirmDialogType, setConfirmDialogType] = useState<'reset' | 'logout'>('reset');
   const [evalKey, setEvalKey] = useState(0); // Key to force EvalTab re-render
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [tempUser, setTempUser] = useState<any>(null);
 
-  const isPatient = user?.role === 'PATIENT';
+  // Check for temporary user data from localStorage first (bypasses cookie issues)
+  useEffect(() => {
+    const isInit = searchParams.get('init') === 'true';
 
-  console.log('[CLIENT] VestibularScreeningApp render:', {
-    sessionLoading,
-    userRole: user?.role,
-    isPatient,
-    appState,
-  });
+    if (isInit && typeof window !== 'undefined') {
+      const tempUserData = localStorage.getItem('temp_user_data');
+      if (tempUserData) {
+        try {
+          const userData = JSON.parse(tempUserData);
+          setTempUser(userData);
+          // Clear the temp data and URL param
+          localStorage.removeItem('temp_user_data');
+          // Remove init param from URL without reloading
+          const url = new URL(window.location.href);
+          url.searchParams.delete('init');
+          window.history.replaceState({}, '', url.toString());
+        } catch (e) {
+          console.error('[CLIENT] Failed to parse temp user data:', e);
+        }
+      }
+    }
+  }, [searchParams]);
+
+  const effectiveUser = tempUser || user;
+  const isPatient = effectiveUser?.role === 'PATIENT';
 
   // Skip splash/options for patients and go directly to exercises
   useEffect(() => {
-    console.log('[CLIENT] useEffect fired:', {
-      sessionLoading,
-      hasUser: !!user,
-      userRole: user?.role,
-      isPatient,
-      willSetExercises: !sessionLoading && user && isPatient,
-    });
+    // If we have temp user data, use it immediately without waiting for session
+    if (tempUser && isPatient) {
+      setAppState('exercises');
+      setActiveTab('exercises');
+      return;
+    }
 
-    if (!sessionLoading && user) {
+    // Otherwise use session data
+    if (!sessionLoading && effectiveUser) {
       if (isPatient) {
-        console.log('[CLIENT] Setting appState to exercises for PATIENT');
         setAppState('exercises');
         setActiveTab('exercises');
       }
     }
-  }, [sessionLoading, user, isPatient]);
+  }, [sessionLoading, effectiveUser, isPatient, tempUser]);
 
   useEffect(() => {
     const checkMobile = () => {

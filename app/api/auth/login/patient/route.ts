@@ -54,7 +54,6 @@ export async function POST(request: NextRequest) {
         email: existingUser.email || undefined,
         name: existingUser.name || undefined,
         role: existingUser.role,
-        biometricEnabled: existingUser.biometricEnabled,
       })
 
       console.log('[Patient Login] Session created for role:', existingUser.role)
@@ -111,7 +110,6 @@ export async function POST(request: NextRequest) {
       email: newUser.email || undefined,
       name: newUser.name || undefined,
       role: newUser.role,
-      biometricEnabled: newUser.biometricEnabled,
     })
 
     // Return user data

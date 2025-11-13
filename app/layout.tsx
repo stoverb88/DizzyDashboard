@@ -5,8 +5,23 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Vestibular Screening Reference',
+  title: 'Dizzy Dashboard',
   description: 'Clinical decision support for dizziness and vertigo evaluation',
+  applicationName: 'Dizzy Dashboard',
+  appleWebApp: {
+    statusBarStyle: 'default',
+    title: 'Dizzy Dashboard',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  manifest: '/manifest.webmanifest',
+  themeColor: '#1A202C',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 }
 
 export default function RootLayout({

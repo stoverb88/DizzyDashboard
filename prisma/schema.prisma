@@ -1,0 +1,177 @@
+// Vestibular Screening WebApp - Database Schema
+// NextAuth.js v5 + Custom User Roles & Invitations
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER MANAGEMENT
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?   // Hashed with bcrypt (for medical professionals)
+  name          String?
+  role          UserRole  @default(PATIENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Security features
+  requirePasswordChange Boolean @default(false) // Force password change on first login
+
+  // Patient portal specific fields
+  inviteCode    String?   @unique // 6-digit code used to register
+  invitedBy     String?   // User ID of medical professional who invited them
+  inviteUsedAt  DateTime? // When the invitation code was used
+  lastLoginAt   DateTime?
+
+  // Relations
+  sessions      Session[]
+  accounts      Account[]
+  usedPatientInvites    PatientInvite[]        @relation("PatientInviteUsedBy")
+
+  // Medical professionals can create invitations
+  createdMedicalInvites  MedicalInvite[] @relation("CreatedMedicalInvites")
+  createdPatientInvites  PatientInvite[] @relation("CreatedPatientInvites")
+  invitedByUser          User?           @relation("UserInvitations", fields: [invitedBy], references: [id])
+  invitedUsers           User[]          @relation("UserInvitations")
+  passwordResetRequests  PasswordResetRequest[] @relation("PasswordResetUser")
+  passwordResetsIssued   PasswordResetRequest[] @relation("PasswordResetAdmin")
+
+  @@index([email])
+  @@index([inviteCode])
+}
+
+enum UserRole {
+  PATIENT                // Limited access: Exercises tab only
+  MEDICAL_PROFESSIONAL  // Full access: All features
+  ADMIN                 // Future: Manage user registrations
+}
+
+// ============================================================================
+// MEDICAL PROFESSIONAL INVITATIONS
+// ============================================================================
+
+model MedicalInvite {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  token       String   @unique // Secure random token for signup link
+  createdBy   String   // User ID who created invite (or "system")
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // Default: 7 days from creation
+  usedAt      DateTime? // When invitation was accepted
+
+  // Future: Admin approval workflow
+  needsApproval Boolean @default(false)
+  approved      Boolean @default(true) // Auto-approve initially
+
+  // Relations
+  creator     User?    @relation("CreatedMedicalInvites", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([email])
+  @@index([expiresAt])
+}
+
+// ============================================================================
+// PATIENT INVITATIONS
+// ============================================================================
+
+model PatientInvite {
+  id          String   @id @default(cuid())
+  code        String   @unique // 6-digit numeric code (easy to remember)
+  createdBy   String   // Medical professional user ID
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // Default: 30 days from creation
+  usedAt      DateTime? // When code was used
+  usedBy      String?  // User ID who used the code
+
+  // Configuration
+  maxUses     Int      @default(1) // Typically single-use
+  useCount    Int      @default(0) // Track how many times used
+
+  // Optional: Patient identifier (non-PHI, e.g., "Patient A")
+  note        String?  // Medical professional's private note
+
+  // Relations
+  creator     User     @relation("CreatedPatientInvites", fields: [createdBy], references: [id], onDelete: Cascade)
+  usedByUser  User?    @relation("PatientInviteUsedBy", fields: [usedBy], references: [id])
+
+  @@index([code])
+  @@index([createdBy])
+  @@index([expiresAt])
+}
+
+// ============================================================================
+// PASSWORD RESET REQUESTS
+// ============================================================================
+
+model PasswordResetRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  requestedById String
+  tokenHash     String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime @default(now())
+
+  user        User @relation("PasswordResetUser", fields: [userId], references: [id], onDelete: Cascade)
+  requestedBy User @relation("PasswordResetAdmin", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+// ============================================================================
+// NEXTAUTH.JS REQUIRED TABLES
+// ============================================================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionToken])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@index([token])
+}

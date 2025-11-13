@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from './ui/Button';
 import { MetronomeEngine } from '../utils/MetronomeEngine';
+import { useSession } from '@/lib/use-session';
 
 interface VORx1SetupProps {
   onBack: () => void;
@@ -18,7 +19,11 @@ export interface VORx1Parameters {
   audioType: 'beep' | 'silent';
 }
 
+// 12-hour threshold for checklist reset (new patient session)
+const CHECKLIST_EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+
 export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
+  const { user } = useSession();
   const [isMobile, setIsMobile] = useState(false);
   const [targetSymbol, setTargetSymbol] = useState<'A' | 'X'>('A');
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
@@ -42,19 +47,48 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
   }, []);
 
   // Load checklist completion status from localStorage on mount
+  // Patients automatically bypass, medical professionals use time-based reset
   React.useEffect(() => {
+    const isPatient = user?.role === 'PATIENT';
+
+    // Patients don't need the checklist - they're already clinically screened
+    if (isPatient) {
+      setChecklistCompleted(true);
+      setContraindicationsChecked([true, true, true]);
+      console.log('Patient user - automatically bypassing safety checklist');
+      return;
+    }
+
+    // For medical professionals, check timestamp-based completion
     try {
-      const completed = localStorage.getItem('vorx1-checklist-completed');
-      console.log('Loading checklist status from localStorage:', completed);
-      if (completed === 'true') {
-        setChecklistCompleted(true);
-        setContraindicationsChecked([true, true, true]);
-        console.log('Checklist already completed - will skip modal');
+      const timestampStr = localStorage.getItem('vorx1-checklist-completed-timestamp');
+      console.log('Loading checklist timestamp from localStorage:', timestampStr);
+
+      if (timestampStr) {
+        const timestamp = parseInt(timestampStr, 10);
+        const now = Date.now();
+        const elapsed = now - timestamp;
+
+        console.log('Timestamp:', new Date(timestamp).toLocaleString());
+        console.log('Elapsed time (hours):', (elapsed / (1000 * 60 * 60)).toFixed(2));
+
+        // If less than 12 hours have passed, skip checklist
+        if (elapsed < CHECKLIST_EXPIRY_MS) {
+          setChecklistCompleted(true);
+          setContraindicationsChecked([true, true, true]);
+          console.log('Checklist completed within 12 hours - will skip modal');
+        } else {
+          // More than 12 hours - clear and show checklist again
+          localStorage.removeItem('vorx1-checklist-completed-timestamp');
+          console.log('Checklist expired (>12 hours) - will show modal for new patient session');
+        }
+      } else {
+        console.log('No checklist timestamp found - will show modal on first exercise');
       }
     } catch (error) {
       console.error('Error loading from localStorage:', error);
     }
-  }, []);
+  }, [user]);
 
   const handleCadenceChange = (value: number) => {
     setCadence(Math.max(60, Math.min(120, value)));
@@ -155,12 +189,13 @@ export function VORx1Setup({ onBack, onStartExercise }: VORx1SetupProps) {
       return;
     }
 
-    // Save completion status to localStorage
-    console.log('Saving checklist completion to localStorage');
+    // Save completion timestamp to localStorage
+    console.log('Saving checklist completion timestamp to localStorage');
     try {
-      localStorage.setItem('vorx1-checklist-completed', 'true');
-      const saved = localStorage.getItem('vorx1-checklist-completed');
-      console.log('Verified saved value:', saved);
+      const timestamp = Date.now().toString();
+      localStorage.setItem('vorx1-checklist-completed-timestamp', timestamp);
+      const saved = localStorage.getItem('vorx1-checklist-completed-timestamp');
+      console.log('Verified saved timestamp:', saved, '(', new Date(parseInt(saved || '0')).toLocaleString(), ')');
     } catch (error) {
       console.error('Error saving to localStorage:', error);
     }

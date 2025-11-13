@@ -6,6 +6,7 @@ import { CustomDropdown } from "./ui/CustomDropdown";
 import { useDebounce } from "../hooks/useDebounce";
 import { useEvalContext } from "../contexts/EvalContext";
 import { triggerVeryLightHaptic } from "../utils/haptics";
+import { generateChartId, formatChartId } from "../lib/chart-id";
 
 const steps = [
   "Red Flag Screening",
@@ -353,17 +354,7 @@ export function EvalTab() {
     return 0; // Default to Red Flag Screening
   });
   const [editableNarrative, setEditableNarrative] = useState('');
-  const [showHipaaModal, setShowHipaaModal] = useState(false);
-  const [hasSeenHipaaAfterReset, setHasSeenHipaaAfterReset] = useState(false);
-  const [hasReset, setHasReset] = useState(() => {
-    // Load reset state from localStorage
-    if (typeof window !== 'undefined') {
-      const savedReset = localStorage.getItem('evalHasReset');
-      return savedReset === 'true';
-    }
-    return false;
-  });
-  
+
   // Initialize formData with localStorage if available
   const [formData, setFormData] = useState<FormData>(() => {
     if (typeof window !== 'undefined') {
@@ -416,9 +407,6 @@ export function EvalTab() {
   // Debounce currentStep (immediate for better UX, but still prevents race conditions)
   const debouncedCurrentStep = useDebounce(currentStep, 100);
 
-  // Debounce hasReset (immediate for critical state)
-  const debouncedHasReset = useDebounce(hasReset, 100);
-
   // Mobile detection with proper hydration handling
   useEffect(() => {
     const checkMobile = () => {
@@ -438,22 +426,18 @@ export function EvalTab() {
         // Batch all localStorage writes together
         localStorage.setItem('vestibularFormData', JSON.stringify(debouncedFormData));
         localStorage.setItem('evalCurrentStep', debouncedCurrentStep.toString());
-        localStorage.setItem('evalHasReset', debouncedHasReset.toString());
       } catch (error) {
         console.error('Failed to save to localStorage:', error);
         // Could add user notification here if needed
       }
     }
-  }, [debouncedFormData, debouncedCurrentStep, debouncedHasReset]);
+  }, [debouncedFormData, debouncedCurrentStep]);
 
   // Function to clear form data (called from parent component when logo is clicked)
   const resetFormData = () => {
-    console.log('Reset function called - setting HIPAA flags');
-    // Set reset flag to trigger HIPAA modal on next narrative visit
-    setHasReset(true);
-    setHasSeenHipaaAfterReset(false);
+    console.log('Reset function called');
     setEditableNarrative('');
-    
+
     const initialData: FormData = {
       redFlags: {
         doubleVision: false,
@@ -483,8 +467,7 @@ export function EvalTab() {
     setCurrentStep(0);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('vestibularFormData');
-      localStorage.removeItem('evalCurrentStep'); // Clear saved step position on reset
-      // Don't remove evalHasReset here - we want it to persist until modal is shown
+      localStorage.removeItem('evalCurrentStep');
     }
   };
 
@@ -495,23 +478,13 @@ export function EvalTab() {
     }
   }, [currentStep, formData]);
 
-  // Show HIPAA modal on first narrative visit after reset
-  useEffect(() => {
-    console.log('HIPAA Modal Check:', { currentStep, hasReset, hasSeenHipaaAfterReset });
-    if (currentStep === 9 && hasReset && !hasSeenHipaaAfterReset) {
-      console.log('Showing HIPAA modal');
-      setShowHipaaModal(true);
-    }
-  }, [currentStep, hasReset, hasSeenHipaaAfterReset]);
-
   // Register resetFormData with context so parent components can call it
   useEffect(() => {
     setResetFunction(resetFormData);
   }, [setResetFunction]);
 
-  const generateChartId = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  }
+  // Chart ID generation now handled by imported function
+  // generateChartId() from lib/chart-id.ts
 
   const updateFormData = (field: string, value: any, section: string | null = null) => {
     if (section) {
@@ -1952,34 +1925,50 @@ export function EvalTab() {
           {/* Narrative Summary - Step 9 */}
           {currentStep === 9 && (
              <div style={sectionStyle}>
-              {formData.chartId && <p style={{fontWeight: 'bold', marginBottom: '15px'}}>Chart ID: {formData.chartId}</p>}
+              {/* Privacy Notice Banner - Step 9 Only */}
+              <div style={{
+                backgroundColor: '#EFF6FF',
+                borderLeft: '3px solid #3B82F6',
+                padding: isMobile ? '8px 10px' : '10px 12px',
+                marginBottom: isMobile ? '10px' : '12px',
+                fontSize: isMobile ? '11px' : '12px',
+                color: '#1e40af',
+                fontWeight: '500',
+                lineHeight: '1.3',
+                borderRadius: '4px'
+              }}>
+                🔒 <strong>Privacy Notice:</strong> This form does not use patient identifiers. To maintain privacy, do not add identifiers (Name, DOB, MRN) until transferring to secure EMR.
+              </div>
+
+              {formData.chartId && <p style={{fontWeight: 'bold', marginBottom: '15px'}}>Chart ID: {formatChartId(formData.chartId, true)}</p>}
               <p style={{
                 fontSize: '14px',
                 color: '#4b5563',
                 marginBottom: '15px',
                 fontWeight: '500'
               }}>
-                📝 <strong>Editable Narrative:</strong> You can modify this summary to add additional details before uploading with your 6-digit code.
+                📝 <strong>Editable Narrative:</strong> You can modify this summary to add additional details before uploading with your 8-character code.
               </p>
               <textarea
                 value={editableNarrative}
                 onChange={(e) => setEditableNarrative(e.target.value)}
                 placeholder="Your clinical narrative will appear here..."
                 style={{
-                  width: '100%', 
-                  height: isMobile ? '60vh' : '70vh', 
-                  padding: '15px', 
-                  border: '2px solid #3B82F6', 
+                  width: '100%',
+                  height: isMobile ? '40vh' : '50vh',
+                  padding: '15px',
+                  border: '2px solid #3B82F6',
                   borderRadius: '8px',
-                  resize: 'none', 
-                  marginBottom: '20px',
+                  resize: 'none',
+                  marginBottom: '10px',
                   fontSize: '14px',
                   lineHeight: '1.5',
                   fontFamily: 'inherit',
                   backgroundColor: '#ffffff',
                   boxSizing: 'border-box',
                   outline: 'none',
-                  transition: 'border-color 0.2s ease'
+                  transition: 'border-color 0.2s ease',
+                  overflowY: 'auto'
                 }}
                 onFocus={(e) => e.target.style.borderColor = '#1D4ED8'}
                 onBlur={(e) => e.target.style.borderColor = '#3B82F6'}
@@ -1999,7 +1988,7 @@ export function EvalTab() {
           {/* Export - Step 10 */}
           {currentStep === 10 && (
             <div style={sectionStyle}>
-              {formData.chartId && <p style={{fontWeight: 'bold', marginBottom: '20px', textAlign: 'center'}}>Chart ID: {formData.chartId}</p>}
+              {formData.chartId && <p style={{fontWeight: 'bold', marginBottom: '20px', textAlign: 'center', fontSize: '18px', letterSpacing: '0.05em'}}>Chart ID: {formatChartId(formData.chartId, true)}</p>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <button
                   onClick={saveNarrativeToServer}
@@ -2031,7 +2020,7 @@ export function EvalTab() {
                   color: '#2F855A',
                   textAlign: 'center'
                 }}>
-                  ✅ Your chart note has been saved! It will be available for 24 hours using ID: <strong>{formData.chartId}</strong>
+                  ✅ Your chart note has been saved! It will be available for 72 hours using ID: <strong>{formatChartId(formData.chartId, true)}</strong>
                 </div>
               )}
               
@@ -2054,117 +2043,6 @@ export function EvalTab() {
           </div>
         </motion.div>
       </AnimatePresence>
-      
-      {/* Professional HIPAA Compliance Modal */}
-      {showHipaaModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: isMobile ? '20px' : '40px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            padding: isMobile ? '24px' : '32px',
-            maxWidth: isMobile ? '90vw' : '500px',
-            width: '100%',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #e5e7eb'
-          }}>
-            <div style={{
-              textAlign: 'center',
-              marginBottom: '24px'
-            }}>
-              <div style={{
-                fontSize: '48px',
-                marginBottom: '16px'
-              }}>🛡️</div>
-              <h2 style={{
-                fontSize: isMobile ? '20px' : '24px',
-                fontWeight: '700',
-                color: '#1f2937',
-                margin: '0 0 8px 0'
-              }}>
-                HIPAA Compliance Notice
-              </h2>
-              <p style={{
-                fontSize: '14px',
-                color: '#6b7280',
-                margin: 0
-              }}>
-                Important Privacy & Security Information
-              </p>
-            </div>
-            
-            <div style={{
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: '8px',
-              padding: '16px',
-              marginBottom: '24px'
-            }}>
-              <p style={{
-                fontSize: '15px',
-                lineHeight: '1.6',
-                color: '#374151',
-                margin: '0 0 12px 0',
-                fontWeight: '500'
-              }}>
-                ⚠️ <strong>Protected Health Information (PHI) Warning:</strong>
-              </p>
-              <p style={{
-                fontSize: '14px',
-                lineHeight: '1.5',
-                color: '#4b5563',
-                margin: 0
-              }}>
-                The generated narrative summary is PHI-free. <strong>If you choose to make additional edits</strong>, ensure any additions comply with HIPAA requirements and do not include patient identifiers (Name, Address, DOB, MRN, SSN, etc.) until entered into your final HIPAA-compliant documentation system.
-              </p>
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center'
-            }}>
-              <button
-                onClick={() => {
-                  setShowHipaaModal(false);
-                  setHasSeenHipaaAfterReset(true);
-                  setHasReset(false);
-                  // Clear from localStorage when modal is dismissed
-                  if (typeof window !== 'undefined') {
-                    localStorage.removeItem('evalHasReset');
-                  }
-                }}
-                style={{
-                  backgroundColor: '#3B82F6',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s ease',
-                  outline: 'none'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1D4ED8'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3B82F6'}
-              >
-                I Understand & Acknowledge
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 } 

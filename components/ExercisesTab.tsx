@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { VORx1Setup, VORx1Parameters } from './VORx1Setup';
 import { VORx1Running } from './VORx1Running';
 import { VORx1Results, VORx1ResultsData } from './VORx1Results';
+import { useSession } from '@/lib/use-session';
 
 type ExerciseView = 'library' | 'vorx1-setup' | 'vorx1-running' | 'vorx1-results';
 
 export function ExercisesTab() {
+  const { user } = useSession();
   const [isMobile, setIsMobile] = useState(false);
   const [currentView, setCurrentView] = useState<ExerciseView>('library');
   const [exerciseParams, setExerciseParams] = useState<VORx1Parameters | null>(null);
@@ -24,12 +26,22 @@ export function ExercisesTab() {
   }, []);
 
   // Check if user has seen the disclaimer
+  // Patients are pre-screened by clinicians, so automatically bypass for them
   React.useEffect(() => {
+    const isPatient = user?.role === 'PATIENT';
+
+    if (isPatient) {
+      // Patients don't need to see the disclaimer - they're already clinically cleared
+      localStorage.setItem('exercises-disclaimer-seen', 'true');
+      return;
+    }
+
+    // For medical professionals, check if they've seen it before
     const disclaimerSeen = localStorage.getItem('exercises-disclaimer-seen');
     if (disclaimerSeen !== 'true') {
       setShowDisclaimerModal(true);
     }
-  }, []);
+  }, [user]);
 
   const handleDisclaimerAccept = () => {
     localStorage.setItem('exercises-disclaimer-seen', 'true');

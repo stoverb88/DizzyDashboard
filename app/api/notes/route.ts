@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { kv } from '@vercel/kv'
+import { normalizeChartId, isValidChartId } from '@/lib/chart-id'
 
 interface NoteData {
   narrative: string
@@ -29,10 +30,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate chartId format (6 alphanumeric characters)
-    if (chartId.length !== 6 || !/^[A-Z0-9]{6}$/i.test(chartId)) {
+    const normalizedChartId = normalizeChartId(chartId)
+
+    // Validate chartId format (8 alphanumeric characters)
+    if (!isValidChartId(normalizedChartId)) {
       return NextResponse.json(
-        { error: 'Chart ID must be exactly 6 alphanumeric characters' },
+        { error: 'Chart ID must be exactly 8 alphanumeric characters' },
         { status: 400 }
       )
     }
@@ -50,9 +53,10 @@ export async function POST(request: NextRequest) {
       createdAt: Date.now()
     }
 
-    // Store with 24-hour expiration (86400 seconds)
+    // Store with 72-hour expiration (259200 seconds)
+    const retentionSeconds = 72 * 60 * 60 // 72 hours
     try {
-      await kv.setex(`vestibular:note:${chartId.toUpperCase()}`, 86400, JSON.stringify(noteData))
+      await kv.setex(`vestibular:note:${normalizedChartId}`, retentionSeconds, JSON.stringify(noteData))
     } catch (kvError) {
       console.error('KV Storage Error:', kvError)
       return NextResponse.json(
@@ -66,9 +70,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      id: chartId.toUpperCase(),
+      id: normalizedChartId,
       message: 'Note saved successfully',
-      expiresAt: noteData.createdAt + 86400000 // 24 hours in ms
+      expiresAt: noteData.createdAt + (retentionSeconds * 1000) // 72 hours in ms
     })
   } catch (error) {
     // Log detailed error for debugging

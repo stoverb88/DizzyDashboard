@@ -1,9 +1,6 @@
-import VestibularScreeningApp from '../components/VestibularScreeningApp'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return (
-    <main className="min-h-screen">
-      <VestibularScreeningApp />
-    </main>
-  )
+  // Redirect to login page
+  redirect('/login')
 } 
