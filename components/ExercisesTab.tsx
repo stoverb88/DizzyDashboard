@@ -1,10 +1,11 @@
 "use client"
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { VORx1Setup, VORx1Parameters } from './VORx1Setup';
 import { VORx1Running } from './VORx1Running';
 import { VORx1Results, VORx1ResultsData } from './VORx1Results';
+import { PatientDashboard } from './PatientDashboard';
 import { useSession } from '@/lib/use-session';
 
 type ExerciseView = 'library' | 'vorx1-setup' | 'vorx1-running' | 'vorx1-results';
@@ -15,6 +16,9 @@ export function ExercisesTab() {
   const [currentView, setCurrentView] = useState<ExerciseView>('library');
   const [exerciseParams, setExerciseParams] = useState<VORx1Parameters | null>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   React.useEffect(() => {
     const checkMobile = () => {
@@ -110,9 +114,30 @@ export function ExercisesTab() {
     setCurrentView('vorx1-setup');
   };
 
-  const handleResultsComplete = (results: VORx1ResultsData) => {
+  const handleResultsComplete = async (results: VORx1ResultsData) => {
     console.log('Exercise results:', results);
-    // TODO: Store results for chart notes (future enhancement)
+
+    // Save exercise session to database
+    try {
+      const response = await fetch('/api/exercises/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exerciseType: 'VORx1',
+          params: exerciseParams,
+          results: results,
+          actualDuration: exerciseParams?.duration,
+          beatCount: exerciseParams ? Math.floor((exerciseParams.duration * exerciseParams.cadence) / 60) : 0
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save exercise session');
+      }
+    } catch (error) {
+      console.error('Error saving exercise session:', error);
+    }
+
     // Return to exercise library
     handleBackToLibrary();
   };
@@ -258,6 +283,113 @@ export function ExercisesTab() {
             </div>
           </div>
         </div>
+
+        {/* Generate Patient Code Button - Only for Medical Professionals */}
+        {user?.role === 'MEDICAL_PROFESSIONAL' && (
+          <div style={{ marginTop: '32px', textAlign: 'center' }}>
+            <button
+              onClick={async () => {
+                setIsGenerating(true);
+                try {
+                  const response = await fetch('/api/invites', { method: 'POST' });
+                  const data = await response.json();
+                  if (response.ok) {
+                    setGeneratedCode(data.code);
+                  }
+                } catch (err) {
+                  console.error('Error generating invite:', err);
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}
+              disabled={isGenerating}
+              style={{
+                padding: '12px 24px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: 'white',
+                color: '#3b82f6',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                transition: 'all 0.2s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                opacity: isGenerating ? 0.6 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isGenerating) {
+                  e.currentTarget.style.backgroundColor = '#eff6ff';
+                  e.currentTarget.style.borderColor = '#3b82f6';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isGenerating) {
+                  e.currentTarget.style.backgroundColor = 'white';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                }
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <line x1="19" y1="8" x2="19" y2="14"></line>
+                <line x1="22" y1="11" x2="16" y2="11"></line>
+              </svg>
+              {isGenerating ? 'Generating...' : 'Generate Patient Code'}
+            </button>
+
+            {/* Display generated code */}
+            {generatedCode && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  marginTop: '24px',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{
+                  fontSize: '3rem',
+                  fontWeight: '700',
+                  color: '#3b82f6',
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.1em',
+                  marginBottom: '16px',
+                }}>
+                  {generatedCode}
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedCode);
+                    setCopiedCode(true);
+                    setTimeout(() => setCopiedCode(false), 2000);
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: '1px solid #3b82f6',
+                    backgroundColor: copiedCode ? '#3b82f6' : 'white',
+                    color: copiedCode ? 'white' : '#3b82f6',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {copiedCode ? 'Copied!' : 'Copy Code'}
+                </button>
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {/* Patient Dashboard - Only for Medical Professionals */}
+        {user?.role === 'MEDICAL_PROFESSIONAL' && (
+          <PatientDashboard />
+        )}
       </motion.div>
 
       {/* Disclaimer Modal */}
