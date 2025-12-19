@@ -21,6 +21,7 @@ model User {
   password      String?   // Hashed with bcrypt (for medical professionals)
   name          String?
   role          UserRole  @default(PATIENT)
+  isActive      Boolean   @default(true)  // Account status - disabled accounts cannot login
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -45,6 +46,7 @@ model User {
   invitedUsers           User[]          @relation("UserInvitations")
   passwordResetRequests  PasswordResetRequest[] @relation("PasswordResetUser")
   passwordResetsIssued   PasswordResetRequest[] @relation("PasswordResetAdmin")
+  exerciseSessions       ExerciseSession[] @relation("UserExerciseSessions")
 
   @@index([email])
   @@index([inviteCode])
@@ -174,4 +176,45 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@index([token])
+}
+
+// ============================================================================
+// EXERCISE SESSIONS
+// ============================================================================
+
+model ExerciseSession {
+  id            String   @id @default(cuid())
+
+  // Relationships
+  userId        String
+  user          User     @relation("UserExerciseSessions", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Exercise identification
+  exerciseType  String   // "VORx1" (extensible for future exercises)
+
+  // Exercise parameters
+  targetSymbol  String   // "A" or "X"
+  orientation   String   // "horizontal" or "vertical"
+  cadence       Int      // BPM (60-120)
+  duration      Int      // seconds (30-120)
+  audioType     String   // "beep" or "silent"
+
+  // Exercise execution data
+  completedAt   DateTime @default(now())
+  actualDuration Int?    // Actual time if stopped early
+  beatCount     Int?     // Total beats delivered
+
+  // Results data
+  dizzyRating   Int      // 0-10
+  position      String   // "seated" or "standing"
+  surfaceType   String?  // "firm" or "soft"
+  footPosition  String?  // "feet-together", "semi-tandem", "tandem"
+
+  // Metadata
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, completedAt])
+  @@index([exerciseType])
 }
