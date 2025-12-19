@@ -304,18 +304,6 @@ export function PatientDashboard() {
                       }}>
                         {patient.name || `Patient ${patient.inviteCode}`}
                       </h3>
-                      {patient.inviteCode && (
-                        <span style={{
-                          backgroundColor: '#E0E7FF',
-                          color: '#3B82F6',
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                        }}>
-                          Code: {patient.inviteCode}
-                        </span>
-                      )}
                     </div>
                     {patient.email && (
                       <p style={{
@@ -443,11 +431,18 @@ export function PatientDashboard() {
                                 <div style={{
                                   marginTop: '4px',
                                   display: 'flex',
+                                  flexWrap: 'wrap',
                                   gap: '16px',
                                   color: '#4A5568',
                                 }}>
                                   <div>Dizzy Rating: <strong>{session.dizzyRating}/10</strong></div>
                                   <div>Position: <strong>{session.position}</strong></div>
+                                  {session.position === 'standing' && session.surfaceType && (
+                                    <div>Surface: <strong>{session.surfaceType}</strong></div>
+                                  )}
+                                  {session.position === 'standing' && session.footPosition && (
+                                    <div>Foot Position: <strong>{session.footPosition}</strong></div>
+                                  )}
                                 </div>
                               </div>
                             ))}
