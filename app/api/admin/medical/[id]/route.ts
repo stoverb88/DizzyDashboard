@@ -62,9 +62,11 @@ export async function DELETE(
 
     // Clean up the medical invite record for this email to allow re-inviting
     // Delete any MedicalInvite records associated with this email
-    await prisma.medicalInvite.deleteMany({
-      where: { email: medical.email },
-    })
+    if (medical.email) {
+      await prisma.medicalInvite.deleteMany({
+        where: { email: medical.email },
+      })
+    }
 
     // Delete the medical professional (cascade deletes: sessions, accounts, created invites, password resets)
     await prisma.user.delete({
