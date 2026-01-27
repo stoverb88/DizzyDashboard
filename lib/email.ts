@@ -152,7 +152,7 @@ function getMedicalInviteEmailHTML(inviteUrl: string, expiresInDays: number): st
     <p style="color: #666; font-size: 14px; margin-top: 30px;">
       If the button doesn't work, copy and paste this link into your browser:
     </p>
-    <p style="word-break: break-all; color: #667eea; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">
+    <p style="word-break: break-all; color: #2D3748; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">
       ${inviteUrl}
     </p>
 
