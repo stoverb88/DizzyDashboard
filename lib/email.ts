@@ -2,6 +2,8 @@
 // Handles medical professional invitations and password reset emails
 
 import { Resend } from 'resend'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 // Initialize Resend client
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -9,6 +11,16 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 // Email configuration
 const FROM_EMAIL = 'noreply@dizzydashboard.com'
 const APP_NAME = 'DizzyDashboard'
+
+// Logo Base64 data URI (loaded from icon.svg)
+let LOGO_BASE64: string | null = null
+try {
+  const logoPath = join(process.cwd(), 'app', 'icon.svg')
+  const logoBuffer = readFileSync(logoPath)
+  LOGO_BASE64 = `data:image/svg+xml;base64,${logoBuffer.toString('base64')}`
+} catch (error) {
+  console.error('Failed to load logo for emails:', error)
+}
 
 export interface EmailResult {
   success: boolean
@@ -96,6 +108,10 @@ export async function sendPasswordResetEmail(
 
 // Email Templates - HTML versions
 function getMedicalInviteEmailHTML(inviteUrl: string, expiresInDays: number): string {
+  const logoImg = LOGO_BASE64
+    ? `<img src="${LOGO_BASE64}" alt="DizzyDashboard" style="width: 48px; height: 48px; margin-bottom: 12px;" />`
+    : ''
+
   return `
 <!DOCTYPE html>
 <html>
@@ -105,9 +121,10 @@ function getMedicalInviteEmailHTML(inviteUrl: string, expiresInDays: number): st
   <title>Medical Professional Invitation</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">DizzyDashboard</h1>
-    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Vestibular Screening Platform</p>
+  <div style="background: linear-gradient(180deg, #1A202C 0%, #111827 100%); padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+    ${logoImg}
+    <div style="color: #fafafa; font-size: 22px; font-weight: 700; letter-spacing: 0.02em;">DIZZY<span style="font-weight: 400;">DASHBOARD</span></div>
+    <p style="color: rgba(250,250,250,0.8); margin: 8px 0 0 0; font-size: 14px;">Medical Professional Invitation</p>
   </div>
 
   <div style="background: white; padding: 40px 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
@@ -117,14 +134,15 @@ function getMedicalInviteEmailHTML(inviteUrl: string, expiresInDays: number): st
 
     <div style="margin: 30px 0;">
       <a href="${inviteUrl}"
-         style="display: inline-block; background: #667eea; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+         style="display: inline-block; background: #2D3748; color: #fafafa; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
         Complete Registration
       </a>
     </div>
 
-    <div style="background: #f8f9fa; padding: 15px; border-left: 4px solid #ffc107; border-radius: 4px; margin: 20px 0;">
-      <p style="margin: 0; color: #856404;">
-        <strong>⏱️ This invitation expires in ${expiresInDays} days</strong>
+    <div style="background: #f7fafc; padding: 16px; border-left: 4px solid #2D3748; border-radius: 6px; margin: 24px 0;">
+      <p style="margin: 0; color: #4A5568; font-size: 14px; line-height: 1.5;">
+        <strong style="color: #1A202C;">Invitation expires in ${expiresInDays} days</strong><br>
+        <span style="font-size: 13px;">Click the button above to complete your registration and set your password.</span>
       </p>
     </div>
 
@@ -151,6 +169,10 @@ function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number, r
     ? 'Your administrator has created a password reset window for your DizzyDashboard account. Use the code below to reset your password:'
     : 'You requested a password reset for your DizzyDashboard account. Use the code below to reset your password:'
 
+  const logoImg = LOGO_BASE64
+    ? `<img src="${LOGO_BASE64}" alt="DizzyDashboard" style="width: 48px; height: 48px; margin-bottom: 12px;" />`
+    : ''
+
   return `
 <!DOCTYPE html>
 <html>
@@ -160,9 +182,10 @@ function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number, r
   <title>Password Reset Request</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">DizzyDashboard</h1>
-    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Password Reset Request</p>
+  <div style="background: linear-gradient(180deg, #1A202C 0%, #111827 100%); padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+    ${logoImg}
+    <div style="color: #fafafa; font-size: 22px; font-weight: 700; letter-spacing: 0.02em;">DIZZY<span style="font-weight: 400;">DASHBOARD</span></div>
+    <p style="color: rgba(250,250,250,0.8); margin: 8px 0 0 0; font-size: 14px;">Password Reset Request</p>
   </div>
 
   <div style="background: white; padding: 40px 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
@@ -170,16 +193,17 @@ function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number, r
 
     <p>${introText}</p>
 
-    <div style="background: #f8f9fa; border: 2px dashed #667eea; padding: 20px; text-align: center; margin: 30px 0; border-radius: 8px;">
-      <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; font-weight: 600;">RESET CODE</p>
-      <p style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #667eea; margin: 0; font-family: 'Courier New', monospace;">
+    <div style="background: #f7fafc; border: 2px solid #2D3748; padding: 24px 20px; text-align: center; margin: 30px 0; border-radius: 8px;">
+      <p style="margin: 0 0 12px 0; color: #4A5568; font-size: 12px; font-weight: 600; letter-spacing: 1px;">YOUR RESET CODE</p>
+      <p style="font-size: 36px; font-weight: 700; letter-spacing: 6px; color: #1A202C; margin: 0; font-family: 'Courier New', Courier, monospace;">
         ${resetToken}
       </p>
     </div>
 
-    <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; border-radius: 4px; margin: 20px 0;">
-      <p style="margin: 0; color: #856404;">
-        <strong>⏱️ This code expires in ${expiresInHours} hours</strong>
+    <div style="background: #f7fafc; padding: 16px; border-left: 4px solid #2D3748; border-radius: 6px; margin: 24px 0;">
+      <p style="margin: 0; color: #4A5568; font-size: 14px; line-height: 1.5;">
+        <strong style="color: #1A202C;">Code expires in ${expiresInHours} hours</strong><br>
+        <span style="font-size: 13px;">Enter this code in the DizzyDashboard login page to reset your password.</span>
       </p>
     </div>
 
@@ -192,12 +216,14 @@ function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number, r
 
     <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
 
-    <div style="background: #fff5f5; padding: 15px; border-left: 4px solid #dc3545; border-radius: 4px;">
-      <p style="margin: 0; color: #721c24; font-size: 14px;">
-        <strong>⚠️ Security Notice</strong><br>
-        ${requestedByAdmin
-          ? 'If you did not request this reset or are unaware of this action, please contact your administrator immediately.'
-          : 'If you didn\'t request this password reset, please ignore this email and ensure your account is secure. Your password will remain unchanged.'}
+    <div style="background: #f7fafc; padding: 16px; border-left: 4px solid #4A5568; border-radius: 6px; margin-top: 24px;">
+      <p style="margin: 0; color: #1A202C; font-size: 13px; line-height: 1.6;">
+        <strong style="font-size: 14px;">Security Notice</strong><br>
+        <span style="color: #4A5568;">
+          ${requestedByAdmin
+            ? 'If you did not request this reset or are unaware of this action, please contact your administrator immediately.'
+            : 'If you didn\'t request this password reset, you can safely ignore this email. Your password will remain unchanged.'}
+        </span>
       </p>
     </div>
   </div>
@@ -216,7 +242,7 @@ You've been invited to join DizzyDashboard as a medical professional.
 Complete your registration by visiting:
 ${inviteUrl}
 
-⏱️ This invitation expires in ${expiresInDays} days
+INVITATION EXPIRES IN ${expiresInDays} DAYS
 
 If you didn't expect this invitation, you can safely ignore this email.
 
@@ -232,7 +258,7 @@ function getPasswordResetEmailText(resetToken: string, expiresInHours: number, r
 
   const securityNotice = requestedByAdmin
     ? 'If you did not request this reset or are unaware of this action, please contact your administrator immediately.'
-    : 'If you didn\'t request this password reset, please ignore this email. Your password will remain unchanged.'
+    : 'If you didn\'t request this password reset, you can safely ignore this email. Your password will remain unchanged.'
 
   return `
 DizzyDashboard - Password Reset Request
@@ -241,7 +267,7 @@ ${introText}
 
 RESET CODE: ${resetToken}
 
-⏱️ This code expires in ${expiresInHours} hours
+CODE EXPIRES IN ${expiresInHours} HOURS
 
 Steps to reset your password:
 1. Go to the DizzyDashboard login page
@@ -249,7 +275,7 @@ Steps to reset your password:
 3. Enter your email and the reset code above
 4. Create your new password
 
-⚠️ SECURITY NOTICE
+SECURITY NOTICE
 ${securityNotice}
 
 ---
