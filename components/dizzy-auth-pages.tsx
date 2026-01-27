@@ -225,22 +225,6 @@ export function RoleSelection({ onSelect, onSecretTap }: { onSelect: (role: stri
             Patient
           </motion.button>
         </div>
-
-        {/* Redeem Invite Code - white text link */}
-        <button
-          onClick={() => onSelect('invite')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'white',
-            fontSize: '14px',
-            textDecoration: 'underline',
-            cursor: 'pointer',
-            padding: 0,
-          }}
-        >
-          Redeem Invite Code for Clinicians
-        </button>
       </div>
     </PageShell>
   );
@@ -1106,246 +1090,6 @@ export function PatientLogin({ onBack, onLoginSuccess }: { onBack: () => void; o
 
 // -----------------------------
 // Clinician Registration (Medical Invitation Token Redemption)
-// Creates MEDICAL_PROFESSIONAL accounts using secure invitation tokens
-// SECURITY: Uses validateMedicalInvite() with long secure tokens (NOT 6-digit patient codes)
-// NOTE: Patient login uses only 6-digit code at /api/auth/login/patient (no email/password)
-// -----------------------------
-export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSuccess: (user: any) => void }) {
-  const [token, setToken] = useState('');
-  const [email, setEmail] = useState('');
-  const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
-  const [show, setShow] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async () => {
-    setError('');
-
-    if (!token) {
-      setError('Please enter invitation token');
-      return;
-    }
-    if (!email || !pw) {
-      setError('Please fill email and password');
-      return;
-    }
-    if (pw !== pw2) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (pw.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/register/medical', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: token.trim(),
-          email: email.trim(),
-          password: pw,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to redeem invitation token. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-
-      onSuccess(data.user);
-    } catch (err) {
-      console.error('Medical professional registration error:', err);
-      setError('An unexpected error occurred. Please try again.');
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <PageShell>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        minHeight: '100vh',
-        padding: '24px',
-        paddingTop: '80px',
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '400px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '24px',
-        }}>
-          <button
-            onClick={onBack}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '14px',
-              color: '#374151',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              alignSelf: 'flex-start',
-            }}
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
-
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <TextOnlyHeader size="large" />
-          </div>
-
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: '#1A202C' }}>
-            Enter your invitation token to create a clinician account
-          </h2>
-
-          {error && (
-            <div style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '12px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FCA5A5',
-              fontSize: '14px',
-              color: '#991B1B',
-            }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Invitation Token</div>
-              <input
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Enter your invitation token"
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Your Email</div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@clinic.org"
-                autoComplete="email"
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Password</div>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={show ? 'text' : 'password'}
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  placeholder="Create a password"
-                  style={{
-                    width: '100%',
-                    borderRadius: '12px',
-                    padding: '12px 16px',
-                    backgroundColor: 'rgba(255,255,255,0.9)',
-                    border: '1px solid #E5E7EB',
-                    fontSize: '16px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <button
-                  onClick={() => setShow(!show)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {show ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Confirm Password</div>
-              <input
-                type={show ? 'text' : 'password'}
-                value={pw2}
-                onChange={(e) => setPw2(e.target.value)}
-                placeholder="Repeat password"
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSubmit}
-              disabled={isLoading}
-              style={{
-                width: '90%',
-                padding: '12px 30px',
-                borderRadius: '10px',
-                border: 'none',
-                backgroundColor: '#2D3748',
-                color: 'white',
-                fontSize: '16px',
-                fontWeight: 600,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.5 : 1,
-              }}
-            >
-              {isLoading ? 'Creating account...' : 'Create Account'}
-            </motion.button>
-          </div>
-        </div>
-      </div>
-    </PageShell>
-  );
-}
-
-// -----------------------------
 // Hidden Admin Login Modal
 // -----------------------------
 function AdminLoginModal({ onClose, router }: { onClose: () => void; router: any }) {
@@ -1532,7 +1276,7 @@ function AdminLoginModal({ onClose, router }: { onClose: () => void; router: any
 // -----------------------------
 export default function AuthScreens() {
   const router = useRouter();
-  const [screen, setScreen] = useState<'role'|'clinician'|'patient'|'invite'>('role');
+  const [screen, setScreen] = useState<'role'|'clinician'|'patient'>('role');
   const [showAdminModal, setShowAdminModal] = useState(false);
   const secretTapRef = useRef({ count: 0, lastTap: 0 });
 
@@ -1546,15 +1290,6 @@ export default function AuthScreens() {
     router.push('/app?init=true');
   };
 
-  const handleInviteSuccess = (user: any) => {
-    console.log('Account created successfully:', user);
-    // Store user data for immediate access
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('temp_user_data', JSON.stringify(user));
-    }
-    // Redirect to main app
-    router.push('/app?init=true');
-  };
 
   const resetSecretTap = () => {
     secretTapRef.current.count = 0;
@@ -1582,13 +1317,12 @@ export default function AuthScreens() {
     <div>
       {screen === 'role' && (
         <RoleSelection
-          onSelect={(r) => setScreen(r === 'clinician' ? 'clinician' : r === 'patient' ? 'patient' : 'invite')}
+          onSelect={(r) => setScreen(r === 'clinician' ? 'clinician' : 'patient')}
           onSecretTap={handleLogoSecretTap}
         />
       )}
       {screen === 'clinician' && <MedicalLogin onBack={() => setScreen('role')} onLoginSuccess={handleLoginSuccess} />}
       {screen === 'patient' && <PatientLogin onBack={() => setScreen('role')} onLoginSuccess={handleLoginSuccess} />}
-      {screen === 'invite' && <InviteCode onBack={() => setScreen('role')} onSuccess={handleInviteSuccess} />}
 
       {showAdminModal && <AdminLoginModal onClose={closeAdminModal} router={router} />}
     </div>
