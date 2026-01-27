@@ -239,7 +239,7 @@ export function RoleSelection({ onSelect, onSecretTap }: { onSelect: (role: stri
             padding: 0,
           }}
         >
-          Redeem Invite Code
+          Redeem Invite Code for Clinicians
         </button>
       </div>
     </PageShell>
@@ -258,7 +258,7 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotToken, setForgotToken] = useState('');
-  const [forgotStep, setForgotStep] = useState<'verify' | 'reset'>('verify');
+  const [forgotStep, setForgotStep] = useState<'request' | 'verify' | 'reset'>('request');
   const [forgotPassword, setForgotPassword] = useState('');
   const [forgotPasswordConfirm, setForgotPasswordConfirm] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -306,7 +306,7 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
     setForgotPasswordConfirm('');
     setForgotError('');
     setForgotMessage('');
-    setForgotStep('verify');
+    setForgotStep('request');
   };
 
   const closeForgotPassword = () => {
@@ -316,7 +316,42 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
     setForgotPasswordConfirm('');
     setForgotError('');
     setForgotMessage('');
-    setForgotStep('verify');
+    setForgotStep('request');
+  };
+
+  const handleRequestResetCode = async () => {
+    if (!forgotEmail || !forgotEmail.includes('@')) {
+      setForgotError('Please enter a valid email address');
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotError('');
+    setForgotMessage('');
+
+    try {
+      const response = await fetch('/api/auth/password-reset/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setForgotError(data.error || 'Unable to request reset code');
+        setForgotLoading(false);
+        return;
+      }
+
+      setForgotStep('verify');
+      setForgotMessage('If an account exists with that email, a reset code has been sent. Please check your inbox.');
+    } catch (err) {
+      console.error('Password reset request error:', err);
+      setForgotError('An unexpected error occurred. Please try again.');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const handleForgotVerify = async () => {
@@ -609,9 +644,15 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937' }}>Reset Clinician Password</div>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937' }}>
+                  {forgotStep === 'request' && 'Reset Your Password'}
+                  {forgotStep === 'verify' && 'Enter Reset Code'}
+                  {forgotStep === 'reset' && 'Create New Password'}
+                </div>
                 <p style={{ fontSize: '0.8125rem', color: '#6B7280', margin: 0 }}>
-                  Enter the email and admin-provided token to unlock a new password field.
+                  {forgotStep === 'request' && 'Enter your email address and we\'ll send you a reset code.'}
+                  {forgotStep === 'verify' && 'Enter the 6-digit code sent to your email.'}
+                  {forgotStep === 'reset' && 'Choose a new password for your account.'}
                 </p>
               </div>
               <button
@@ -654,78 +695,139 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
               </div>
             )}
 
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Clinician Email</div>
-              <input
-                type="email"
-                value={forgotEmail}
-                onChange={(e) => {
-                  setForgotEmail(e.target.value);
-                  if (forgotStep === 'reset') {
-                    setForgotStep('verify');
-                    setForgotMessage('');
-                  }
-                }}
-                placeholder="you@clinic.org"
-                disabled={forgotLoading}
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
+            {/* Step 1: Request reset code */}
+            {forgotStep === 'request' && (
+              <>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Email Address</div>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="you@clinic.org"
+                    disabled={forgotLoading}
+                    style={{
+                      width: '100%',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '16px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '4px 0 0 0' }}>
+                    A 6-digit reset code will be sent to this email address.
+                  </p>
+                </div>
 
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Admin Reset Token</div>
-              <input
-                type="text"
-                value={forgotToken}
-                onChange={(e) => {
-                  setForgotToken(e.target.value.toUpperCase());
-                  if (forgotStep === 'reset') {
-                    setForgotStep('verify');
-                    setForgotMessage('');
-                  }
-                }}
-                placeholder="Enter the token the admin shared"
-                disabled={forgotLoading}
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                  letterSpacing: '0.1em',
-                }}
-              />
-            </div>
+                <button
+                  onClick={handleRequestResetCode}
+                  disabled={forgotLoading}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: '#1F2937',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                    opacity: forgotLoading ? 0.6 : 1,
+                  }}
+                >
+                  {forgotLoading ? 'Sending Code...' : 'Send Reset Code'}
+                </button>
+              </>
+            )}
 
-            {forgotStep === 'verify' ? (
-              <button
-                onClick={handleForgotVerify}
-                disabled={forgotLoading}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  backgroundColor: '#1F2937',
-                  color: '#FFFFFF',
-                  fontWeight: 600,
-                  cursor: forgotLoading ? 'not-allowed' : 'pointer',
-                  opacity: forgotLoading ? 0.6 : 1,
-                }}
-              >
-                {forgotLoading ? 'Checking...' : 'Verify reset window'}
-              </button>
-            ) : (
+            {/* Step 2: Enter code and verify */}
+            {forgotStep === 'verify' && (
+              <>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Email Address</div>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    readOnly
+                    style={{
+                      width: '100%',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      backgroundColor: '#F3F4F6',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '16px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Reset Code</div>
+                  <input
+                    type="text"
+                    value={forgotToken}
+                    onChange={(e) => setForgotToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit code"
+                    maxLength={6}
+                    disabled={forgotLoading}
+                    style={{
+                      width: '100%',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '16px',
+                      boxSizing: 'border-box',
+                      letterSpacing: '0.1em',
+                    }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '4px 0 0 0' }}>
+                    Check your email inbox (and spam folder) for the reset code.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleForgotVerify}
+                  disabled={forgotLoading}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: '#1F2937',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                    opacity: forgotLoading ? 0.6 : 1,
+                  }}
+                >
+                  {forgotLoading ? 'Verifying...' : 'Verify Code'}
+                </button>
+
+                <button
+                  onClick={() => setForgotStep('request')}
+                  disabled={forgotLoading}
+                  style={{
+                    width: '100%',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: 'transparent',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                    opacity: forgotLoading ? 0.6 : 1,
+                  }}
+                >
+                  ← Use different email
+                </button>
+              </>
+            )}
+
+            {/* Step 3: Create new password */}
+            {forgotStep === 'reset' && (
               <>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>New Password</div>
@@ -1003,10 +1105,13 @@ export function PatientLogin({ onBack, onLoginSuccess }: { onBack: () => void; o
 }
 
 // -----------------------------
-// InviteCode Redemption (Clinician sign-up)
+// Clinician Registration (Medical Invitation Token Redemption)
+// Creates MEDICAL_PROFESSIONAL accounts using secure invitation tokens
+// SECURITY: Uses validateMedicalInvite() with long secure tokens (NOT 6-digit patient codes)
+// NOTE: Patient login uses only 6-digit code at /api/auth/login/patient (no email/password)
 // -----------------------------
 export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSuccess: (user: any) => void }) {
-  const [inviteCode, setInviteCode] = useState('');
+  const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
@@ -1017,8 +1122,8 @@ export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSucces
   const handleSubmit = async () => {
     setError('');
 
-    if (!inviteCode) {
-      setError('Please enter invite code');
+    if (!token) {
+      setError('Please enter invitation token');
       return;
     }
     if (!email || !pw) {
@@ -1037,11 +1142,11 @@ export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSucces
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/invites/medical', {
+      const response = await fetch('/api/auth/register/medical', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          inviteCode: inviteCode.trim(),
+          token: token.trim(),
           email: email.trim(),
           password: pw,
         }),
@@ -1050,14 +1155,14 @@ export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSucces
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Failed to redeem invite code. Please try again.');
+        setError(data.error || 'Failed to redeem invitation token. Please try again.');
         setIsLoading(false);
         return;
       }
 
       onSuccess(data.user);
     } catch (err) {
-      console.error('Invite redemption error:', err);
+      console.error('Medical professional registration error:', err);
       setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
@@ -1103,7 +1208,7 @@ export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSucces
           </div>
 
           <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: '#1A202C' }}>
-            Enter the invite code from your organization to create an account
+            Enter your invitation token to create a clinician account
           </h2>
 
           {error && (
@@ -1122,11 +1227,11 @@ export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSucces
 
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
             <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Invite Code</div>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Invitation Token</div>
               <input
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Enter invite code"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="Enter your invitation token"
                 style={{
                   width: '100%',
                   borderRadius: '12px',

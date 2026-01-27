@@ -78,7 +78,8 @@ export async function POST(
       const emailResult = await sendPasswordResetEmail(
         clinicianWithEmail.email,
         resetToken, // Plain token (not hashed)
-        24
+        24,
+        true // requestedByAdmin = true (admin-initiated)
       )
 
       emailSent = emailResult.success

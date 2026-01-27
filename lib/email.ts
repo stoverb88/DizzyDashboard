@@ -61,7 +61,8 @@ export async function sendMedicalInviteEmail(
 export async function sendPasswordResetEmail(
   to: string,
   resetToken: string,
-  expiresInHours: number = 24
+  expiresInHours: number = 24,
+  requestedByAdmin: boolean = false
 ): Promise<EmailResult> {
   try {
     if (!process.env.RESEND_API_KEY) {
@@ -73,8 +74,8 @@ export async function sendPasswordResetEmail(
       from: FROM_EMAIL,
       to,
       subject: `Password Reset Request - ${APP_NAME}`,
-      html: getPasswordResetEmailHTML(resetToken, expiresInHours),
-      text: getPasswordResetEmailText(resetToken, expiresInHours),
+      html: getPasswordResetEmailHTML(resetToken, expiresInHours, requestedByAdmin),
+      text: getPasswordResetEmailText(resetToken, expiresInHours, requestedByAdmin),
     })
 
     if (error) {
@@ -145,7 +146,11 @@ function getMedicalInviteEmailHTML(inviteUrl: string, expiresInDays: number): st
   `
 }
 
-function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number): string {
+function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number, requestedByAdmin: boolean = false): string {
+  const introText = requestedByAdmin
+    ? 'Your administrator has created a password reset window for your DizzyDashboard account. Use the code below to reset your password:'
+    : 'You requested a password reset for your DizzyDashboard account. Use the code below to reset your password:'
+
   return `
 <!DOCTYPE html>
 <html>
@@ -163,7 +168,7 @@ function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number): 
   <div style="background: white; padding: 40px 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
     <h2 style="color: #333; margin-top: 0;">Reset Your Password</h2>
 
-    <p>A password reset has been requested for your DizzyDashboard account. Use the code below to reset your password:</p>
+    <p>${introText}</p>
 
     <div style="background: #f8f9fa; border: 2px dashed #667eea; padding: 20px; text-align: center; margin: 30px 0; border-radius: 8px;">
       <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; font-weight: 600;">RESET CODE</p>
@@ -190,7 +195,9 @@ function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number): 
     <div style="background: #fff5f5; padding: 15px; border-left: 4px solid #dc3545; border-radius: 4px;">
       <p style="margin: 0; color: #721c24; font-size: 14px;">
         <strong>⚠️ Security Notice</strong><br>
-        If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+        ${requestedByAdmin
+          ? 'If you did not request this reset or are unaware of this action, please contact your administrator immediately.'
+          : 'If you didn\'t request this password reset, please ignore this email and ensure your account is secure. Your password will remain unchanged.'}
       </p>
     </div>
   </div>
@@ -218,11 +225,19 @@ DizzyDashboard - Vestibular Screening Platform
   `.trim()
 }
 
-function getPasswordResetEmailText(resetToken: string, expiresInHours: number): string {
+function getPasswordResetEmailText(resetToken: string, expiresInHours: number, requestedByAdmin: boolean = false): string {
+  const introText = requestedByAdmin
+    ? 'Your administrator has created a password reset window for your account.'
+    : 'You requested a password reset for your account.'
+
+  const securityNotice = requestedByAdmin
+    ? 'If you did not request this reset or are unaware of this action, please contact your administrator immediately.'
+    : 'If you didn\'t request this password reset, please ignore this email. Your password will remain unchanged.'
+
   return `
 DizzyDashboard - Password Reset Request
 
-A password reset has been requested for your account.
+${introText}
 
 RESET CODE: ${resetToken}
 
@@ -235,8 +250,7 @@ Steps to reset your password:
 4. Create your new password
 
 ⚠️ SECURITY NOTICE
-If you didn't request this password reset, please ignore this email.
-Your password will remain unchanged.
+${securityNotice}
 
 ---
 DizzyDashboard - Vestibular Screening Platform
