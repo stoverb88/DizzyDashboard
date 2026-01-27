@@ -12,14 +12,16 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = 'noreply@dizzydashboard.com'
 const APP_NAME = 'DizzyDashboard'
 
-// Logo Base64 data URI (loaded from icon.svg)
-let LOGO_BASE64: string | null = null
-try {
-  const logoPath = join(process.cwd(), 'app', 'icon.svg')
-  const logoBuffer = readFileSync(logoPath)
-  LOGO_BASE64 = `data:image/svg+xml;base64,${logoBuffer.toString('base64')}`
-} catch (error) {
-  console.error('Failed to load logo for emails:', error)
+// Helper function to get logo as Base64 data URI
+function getLogoBase64(): string | null {
+  try {
+    const logoPath = join(process.cwd(), 'app', 'icon.svg')
+    const logoBuffer = readFileSync(logoPath)
+    return `data:image/svg+xml;base64,${logoBuffer.toString('base64')}`
+  } catch (error) {
+    console.error('Failed to load logo for emails:', error)
+    return null
+  }
 }
 
 export interface EmailResult {
@@ -108,8 +110,9 @@ export async function sendPasswordResetEmail(
 
 // Email Templates - HTML versions
 function getMedicalInviteEmailHTML(inviteUrl: string, expiresInDays: number): string {
-  const logoImg = LOGO_BASE64
-    ? `<img src="${LOGO_BASE64}" alt="DizzyDashboard" style="width: 48px; height: 48px; margin-bottom: 12px;" />`
+  const logoBase64 = getLogoBase64()
+  const logoImg = logoBase64
+    ? `<img src="${logoBase64}" alt="DizzyDashboard" style="width: 48px; height: 48px; margin-bottom: 12px;" />`
     : ''
 
   return `
@@ -169,8 +172,9 @@ function getPasswordResetEmailHTML(resetToken: string, expiresInHours: number, r
     ? 'Your administrator has created a password reset window for your DizzyDashboard account. Use the code below to reset your password:'
     : 'You requested a password reset for your DizzyDashboard account. Use the code below to reset your password:'
 
-  const logoImg = LOGO_BASE64
-    ? `<img src="${LOGO_BASE64}" alt="DizzyDashboard" style="width: 48px; height: 48px; margin-bottom: 12px;" />`
+  const logoBase64 = getLogoBase64()
+  const logoImg = logoBase64
+    ? `<img src="${logoBase64}" alt="DizzyDashboard" style="width: 48px; height: 48px; margin-bottom: 12px;" />`
     : ''
 
   return `

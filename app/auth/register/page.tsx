@@ -84,7 +84,7 @@ function RegisterContent() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(180deg, #1A202C 0%, #111827 100%)',
       }}>
         <div style={{
           maxWidth: '400px',
@@ -107,7 +107,7 @@ function RegisterContent() {
               padding: '12px',
               borderRadius: '8px',
               border: 'none',
-              backgroundColor: '#667eea',
+              backgroundColor: '#2D3748',
               color: 'white',
               fontSize: '0.875rem',
               fontWeight: 600,
@@ -125,7 +125,7 @@ function RegisterContent() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'linear-gradient(180deg, #1A202C 0%, #111827 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -342,7 +342,7 @@ function RegisterContent() {
               padding: '12px',
               borderRadius: '8px',
               border: 'none',
-              backgroundColor: '#667eea',
+              backgroundColor: '#2D3748',
               color: 'white',
               fontSize: '0.875rem',
               fontWeight: 600,
@@ -368,7 +368,7 @@ function RegisterContent() {
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#667eea',
+                color: '#2D3748',
                 cursor: 'pointer',
                 textDecoration: 'underline',
                 padding: 0,
@@ -392,7 +392,7 @@ export default function MedicalRegisterPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(180deg, #1A202C 0%, #111827 100%)',
       }}>
         <div style={{ color: 'white', fontSize: '1rem' }}>Loading...</div>
       </div>
