@@ -1,11 +1,11 @@
 'use client'
 
 // MedicalManagement.tsx
-// Add and manage medical professional accounts
+// Invite and manage medical professional accounts
 
 import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { Plus, User, Mail, Eye, EyeOff, Shield, Calendar } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Plus, Mail, Shield, Calendar, Trash2, X } from 'lucide-react'
 import { AdminLayout } from './AdminLayout'
 import type { SessionData } from '@/lib/session'
 
@@ -41,15 +41,17 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     name: '',
   })
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [resettingId, setResettingId] = useState<string | null>(null)
   const [resetNotices, setResetNotices] = useState<Record<string, { token: string; expiresAt: string }>>({})
   const [resetError, setResetError] = useState('')
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
+  const [deleteConfirmProfessional, setDeleteConfirmProfessional] = useState<MedicalProfessional | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     loadProfessionals()
@@ -133,42 +135,99 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
     e.preventDefault()
     setError('')
 
-    if (!formData.email || !formData.password) {
-      setError('Email and password are required')
+    if (!formData.email) {
+      setError('Email is required')
       return
     }
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters')
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError('Invalid email format')
       return
     }
 
     setIsAdding(true)
     try {
-      const response = await fetch('/api/admin/medical', {
+      // Create invite instead of direct account
+      const response = await fetch('/api/admin/invites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          type: 'MEDICAL_PROFESSIONAL',
+          email: formData.email,
+          expiresInDays: 7,
+        }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Failed to add medical professional')
+        setError(data.error || 'Failed to send invitation')
         setIsAdding(false)
         return
       }
 
-      // Success - reset form and reload
-      setFormData({ email: '', password: '', name: '' })
+      // Success - reset form and show message
+      setFormData({ email: '', name: '' })
       setShowAddForm(false)
-      await loadProfessionals()
+      setError('')
+
+      // Show success notification based on email delivery
+      if (data.emailSent) {
+        alert(`✅ Invitation email sent to ${formData.email}\n\nThe clinician will receive an email with a secure registration link valid for 7 days.`)
+      } else {
+        alert(`⚠️ Invitation created for ${formData.email}\n\nEmail delivery failed. Please share this URL manually:\n\n${data.invitation?.inviteUrl || 'Check the Invites tab for the URL'}`)
+      }
+
+      // No need to reload professionals list - they'll appear after registration
     } catch (error) {
-      console.error('Failed to add medical professional:', error)
+      console.error('Failed to create invitation:', error)
       setError('An unexpected error occurred')
     } finally {
       setIsAdding(false)
     }
+  }
+
+  async function handleDeleteProfessional(professional: MedicalProfessional) {
+    setDeleteConfirmProfessional(professional)
+    setDeleteError(null)
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirmProfessional) return
+
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      const response = await fetch(`/api/admin/medical/${deleteConfirmProfessional.id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setDeleteSuccess(`Successfully deleted medical professional: ${deleteConfirmProfessional.name || deleteConfirmProfessional.email}`)
+        setDeleteConfirmProfessional(null)
+        await loadProfessionals()
+
+        // Clear success message after 3 seconds
+        setTimeout(() => setDeleteSuccess(null), 3000)
+      } else {
+        setDeleteError(data.error || 'Failed to delete medical professional')
+      }
+    } catch (error) {
+      console.error('Error deleting medical professional:', error)
+      setDeleteError('Failed to delete medical professional. Please try again.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  function cancelDelete() {
+    setDeleteConfirmProfessional(null)
+    setDeleteError(null)
   }
 
   return (
@@ -216,9 +275,40 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
             }}
           >
             <Plus size={18} />
-            Add Medical Professional
+            Invite Medical Professional
           </motion.button>
         </div>
+
+        {/* Success Message */}
+        <AnimatePresence>
+          {deleteSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              style={{
+                backgroundColor: '#D1FAE5',
+                border: '1px solid #10B981',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: '#10B981',
+              }} />
+              <span style={{ color: '#065F46', fontSize: '0.875rem', fontWeight: 500 }}>
+                {deleteSuccess}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {resetError && (
           <div style={{
@@ -253,7 +343,7 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
               color: '#1A202C',
               marginBottom: '16px',
             }}>
-              Add New Medical Professional
+              Invite Medical Professional
             </h3>
 
             {error && (
@@ -331,54 +421,24 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
                     }}
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                    color: '#374151',
-                    marginBottom: '6px',
-                  }}>
-                    Password *
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Minimum 8 characters"
-                      required
-                      minLength={8}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        paddingRight: '40px',
-                        borderRadius: '10px',
-                        border: '1px solid #E5E7EB',
-                        fontSize: '0.875rem',
-                        backgroundColor: '#FFFFFF',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '4px',
-                      }}
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
+              {/* Info box explaining the invite process */}
+              <div style={{
+                marginBottom: '16px',
+                padding: '12px 16px',
+                backgroundColor: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                borderRadius: '10px',
+              }}>
+                <p style={{
+                  fontSize: '0.8125rem',
+                  color: '#1E40AF',
+                  margin: 0,
+                  lineHeight: '1.5',
+                }}>
+                  📧 An invitation email will be sent to this address with a secure registration link. The clinician will set their own password during registration. The invitation expires in 7 days.
+                </p>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -387,7 +447,7 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
                   onClick={() => {
                     setShowAddForm(false)
                     setError('')
-                    setFormData({ email: '', password: '', name: '' })
+                    setFormData({ email: '', name: '' })
                   }}
                   style={{
                     padding: '10px 20px',
@@ -417,7 +477,7 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
                     opacity: isAdding ? 0.5 : 1,
                   }}
                 >
-                  {isAdding ? 'Adding...' : 'Add Professional'}
+                  {isAdding ? 'Sending...' : 'Send Invitation'}
                 </button>
               </div>
             </form>
@@ -640,24 +700,55 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
                       </div>
                     )}
 
-                    <button
-                      onClick={() => triggerPasswordReset(professional.id)}
-                      disabled={resettingId === professional.id}
-                      style={{
-                        alignSelf: 'flex-start',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        border: '1px solid #1F2937',
-                        backgroundColor: '#1F2937',
-                        color: '#FFFFFF',
-                        fontSize: '0.8125rem',
-                        fontWeight: 600,
-                        cursor: resettingId === professional.id ? 'not-allowed' : 'pointer',
-                        opacity: resettingId === professional.id ? 0.6 : 1,
-                      }}
-                    >
-                      {resettingId === professional.id ? 'Creating window...' : 'Start 24h reset window'}
-                    </button>
+                    <div style={{
+                      display: 'flex',
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                    }}>
+                      <button
+                        onClick={() => triggerPasswordReset(professional.id)}
+                        disabled={resettingId === professional.id}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          border: '1px solid #1F2937',
+                          backgroundColor: '#1F2937',
+                          color: '#FFFFFF',
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          cursor: resettingId === professional.id ? 'not-allowed' : 'pointer',
+                          opacity: resettingId === professional.id ? 0.6 : 1,
+                        }}
+                      >
+                        {resettingId === professional.id ? 'Creating window...' : 'Start 24h reset window'}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteProfessional(professional)
+                        }}
+                        disabled={professional.id === session.userId}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          border: '1px solid #DC2626',
+                          backgroundColor: professional.id === session.userId ? '#F3F4F6' : '#FEE2E2',
+                          color: professional.id === session.userId ? '#9CA3AF' : '#DC2626',
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          cursor: professional.id === session.userId ? 'not-allowed' : 'pointer',
+                          opacity: professional.id === session.userId ? 0.5 : 1,
+                        }}
+                        title={professional.id === session.userId ? 'Cannot delete your own account' : 'Delete medical professional'}
+                      >
+                        <Trash2 size={14} />
+                        Delete Professional
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -665,6 +756,172 @@ export default function MedicalManagement({ session }: MedicalManagementProps) {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmProfessional && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={cancelDelete}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              zIndex: 1000,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: 'white',
+                borderRadius: '16px',
+                padding: '24px',
+                maxWidth: '500px',
+                width: '100%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                marginBottom: '16px',
+              }}>
+                <h3 style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  color: '#1A202C',
+                }}>
+                  Delete Medical Professional
+                </h3>
+                <button
+                  onClick={cancelDelete}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    color: '#6B7280',
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{
+                marginBottom: '20px',
+                color: '#374151',
+                fontSize: '0.9375rem',
+                lineHeight: '1.6',
+              }}>
+                <p style={{ marginBottom: '12px' }}>
+                  Are you sure you want to delete{' '}
+                  <strong>{deleteConfirmProfessional.name || deleteConfirmProfessional.email}</strong>?
+                </p>
+
+                <div style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FCA5A5',
+                  marginBottom: '12px',
+                }}>
+                  <p style={{ color: '#991B1B', fontSize: '0.875rem', fontWeight: 600, marginBottom: '8px' }}>
+                    This action will permanently delete:
+                  </p>
+                  <ul style={{
+                    color: '#991B1B',
+                    fontSize: '0.875rem',
+                    marginLeft: '20px',
+                    lineHeight: '1.6',
+                  }}>
+                    <li>The medical professional account</li>
+                    <li>All active sessions for this user</li>
+                    <li>All password reset requests</li>
+                    <li>Any invite codes created by this user</li>
+                    {deleteConfirmProfessional.patientsCount > 0 && (
+                      <li style={{ fontWeight: 600 }}>
+                        Association with {deleteConfirmProfessional.patientsCount} patient{deleteConfirmProfessional.patientsCount === 1 ? '' : 's'}
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                <p style={{ fontSize: '0.875rem', color: '#6B7280' }}>
+                  This action cannot be undone.
+                </p>
+              </div>
+
+              {deleteError && (
+                <div style={{
+                  marginBottom: '16px',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FCA5A5',
+                  color: '#991B1B',
+                  fontSize: '0.875rem',
+                }}>
+                  {deleteError}
+                </div>
+              )}
+
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                justifyContent: 'flex-end',
+              }}>
+                <button
+                  onClick={cancelDelete}
+                  disabled={isDeleting}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                    color: '#374151',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    opacity: isDeleting ? 0.5 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#DC2626',
+                    color: '#FFFFFF',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    opacity: isDeleting ? 0.5 : 1,
+                  }}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Professional'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AdminLayout>
   )
 }

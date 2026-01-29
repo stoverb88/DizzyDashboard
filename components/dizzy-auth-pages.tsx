@@ -225,22 +225,6 @@ export function RoleSelection({ onSelect, onSecretTap }: { onSelect: (role: stri
             Patient
           </motion.button>
         </div>
-
-        {/* Redeem Invite Code - white text link */}
-        <button
-          onClick={() => onSelect('invite')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'white',
-            fontSize: '14px',
-            textDecoration: 'underline',
-            cursor: 'pointer',
-            padding: 0,
-          }}
-        >
-          Redeem Invite Code
-        </button>
       </div>
     </PageShell>
   );
@@ -258,7 +242,7 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotToken, setForgotToken] = useState('');
-  const [forgotStep, setForgotStep] = useState<'verify' | 'reset'>('verify');
+  const [forgotStep, setForgotStep] = useState<'request' | 'verify' | 'reset'>('request');
   const [forgotPassword, setForgotPassword] = useState('');
   const [forgotPasswordConfirm, setForgotPasswordConfirm] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -306,7 +290,7 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
     setForgotPasswordConfirm('');
     setForgotError('');
     setForgotMessage('');
-    setForgotStep('verify');
+    setForgotStep('request');
   };
 
   const closeForgotPassword = () => {
@@ -316,7 +300,42 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
     setForgotPasswordConfirm('');
     setForgotError('');
     setForgotMessage('');
-    setForgotStep('verify');
+    setForgotStep('request');
+  };
+
+  const handleRequestResetCode = async () => {
+    if (!forgotEmail || !forgotEmail.includes('@')) {
+      setForgotError('Please enter a valid email address');
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotError('');
+    setForgotMessage('');
+
+    try {
+      const response = await fetch('/api/auth/password-reset/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setForgotError(data.error || 'Unable to request reset code');
+        setForgotLoading(false);
+        return;
+      }
+
+      setForgotStep('verify');
+      setForgotMessage('If an account exists with that email, a reset code has been sent. Please check your inbox.');
+    } catch (err) {
+      console.error('Password reset request error:', err);
+      setForgotError('An unexpected error occurred. Please try again.');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const handleForgotVerify = async () => {
@@ -609,9 +628,15 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937' }}>Reset Clinician Password</div>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1F2937' }}>
+                  {forgotStep === 'request' && 'Reset Your Password'}
+                  {forgotStep === 'verify' && 'Enter Reset Code'}
+                  {forgotStep === 'reset' && 'Create New Password'}
+                </div>
                 <p style={{ fontSize: '0.8125rem', color: '#6B7280', margin: 0 }}>
-                  Enter the email and admin-provided token to unlock a new password field.
+                  {forgotStep === 'request' && 'Enter your email address and we\'ll send you a reset code.'}
+                  {forgotStep === 'verify' && 'Enter the 6-digit code sent to your email.'}
+                  {forgotStep === 'reset' && 'Choose a new password for your account.'}
                 </p>
               </div>
               <button
@@ -654,78 +679,139 @@ function MedicalLogin({ onBack, onLoginSuccess }: { onBack: () => void; onLoginS
               </div>
             )}
 
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Clinician Email</div>
-              <input
-                type="email"
-                value={forgotEmail}
-                onChange={(e) => {
-                  setForgotEmail(e.target.value);
-                  if (forgotStep === 'reset') {
-                    setForgotStep('verify');
-                    setForgotMessage('');
-                  }
-                }}
-                placeholder="you@clinic.org"
-                disabled={forgotLoading}
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
+            {/* Step 1: Request reset code */}
+            {forgotStep === 'request' && (
+              <>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Email Address</div>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="you@clinic.org"
+                    disabled={forgotLoading}
+                    style={{
+                      width: '100%',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '16px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '4px 0 0 0' }}>
+                    A 6-digit reset code will be sent to this email address.
+                  </p>
+                </div>
 
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Admin Reset Token</div>
-              <input
-                type="text"
-                value={forgotToken}
-                onChange={(e) => {
-                  setForgotToken(e.target.value.toUpperCase());
-                  if (forgotStep === 'reset') {
-                    setForgotStep('verify');
-                    setForgotMessage('');
-                  }
-                }}
-                placeholder="Enter the token the admin shared"
-                disabled={forgotLoading}
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                  letterSpacing: '0.1em',
-                }}
-              />
-            </div>
+                <button
+                  onClick={handleRequestResetCode}
+                  disabled={forgotLoading}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: '#1F2937',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                    opacity: forgotLoading ? 0.6 : 1,
+                  }}
+                >
+                  {forgotLoading ? 'Sending Code...' : 'Send Reset Code'}
+                </button>
+              </>
+            )}
 
-            {forgotStep === 'verify' ? (
-              <button
-                onClick={handleForgotVerify}
-                disabled={forgotLoading}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  backgroundColor: '#1F2937',
-                  color: '#FFFFFF',
-                  fontWeight: 600,
-                  cursor: forgotLoading ? 'not-allowed' : 'pointer',
-                  opacity: forgotLoading ? 0.6 : 1,
-                }}
-              >
-                {forgotLoading ? 'Checking...' : 'Verify reset window'}
-              </button>
-            ) : (
+            {/* Step 2: Enter code and verify */}
+            {forgotStep === 'verify' && (
+              <>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Email Address</div>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    readOnly
+                    style={{
+                      width: '100%',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      backgroundColor: '#F3F4F6',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '16px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Reset Code</div>
+                  <input
+                    type="text"
+                    value={forgotToken}
+                    onChange={(e) => setForgotToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit code"
+                    maxLength={6}
+                    disabled={forgotLoading}
+                    style={{
+                      width: '100%',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      backgroundColor: forgotLoading ? '#F3F4F6' : 'rgba(255,255,255,0.9)',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '16px',
+                      boxSizing: 'border-box',
+                      letterSpacing: '0.1em',
+                    }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '4px 0 0 0' }}>
+                    Check your email inbox (and spam folder) for the reset code.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleForgotVerify}
+                  disabled={forgotLoading}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: '#1F2937',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                    opacity: forgotLoading ? 0.6 : 1,
+                  }}
+                >
+                  {forgotLoading ? 'Verifying...' : 'Verify Code'}
+                </button>
+
+                <button
+                  onClick={() => setForgotStep('request')}
+                  disabled={forgotLoading}
+                  style={{
+                    width: '100%',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: 'transparent',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                    opacity: forgotLoading ? 0.6 : 1,
+                  }}
+                >
+                  ← Use different email
+                </button>
+              </>
+            )}
+
+            {/* Step 3: Create new password */}
+            {forgotStep === 'reset' && (
               <>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>New Password</div>
@@ -1003,244 +1089,7 @@ export function PatientLogin({ onBack, onLoginSuccess }: { onBack: () => void; o
 }
 
 // -----------------------------
-// InviteCode Redemption (Clinician sign-up)
-// -----------------------------
-export function InviteCode({ onBack, onSuccess }: { onBack: () => void; onSuccess: (user: any) => void }) {
-  const [inviteCode, setInviteCode] = useState('');
-  const [email, setEmail] = useState('');
-  const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
-  const [show, setShow] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async () => {
-    setError('');
-
-    if (!inviteCode) {
-      setError('Please enter invite code');
-      return;
-    }
-    if (!email || !pw) {
-      setError('Please fill email and password');
-      return;
-    }
-    if (pw !== pw2) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (pw.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/invites/medical', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inviteCode: inviteCode.trim(),
-          email: email.trim(),
-          password: pw,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to redeem invite code. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-
-      onSuccess(data.user);
-    } catch (err) {
-      console.error('Invite redemption error:', err);
-      setError('An unexpected error occurred. Please try again.');
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <PageShell>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        minHeight: '100vh',
-        padding: '24px',
-        paddingTop: '80px',
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '400px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '24px',
-        }}>
-          <button
-            onClick={onBack}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '14px',
-              color: '#374151',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              alignSelf: 'flex-start',
-            }}
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
-
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <TextOnlyHeader size="large" />
-          </div>
-
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: '#1A202C' }}>
-            Enter the invite code from your organization to create an account
-          </h2>
-
-          {error && (
-            <div style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '12px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FCA5A5',
-              fontSize: '14px',
-              color: '#991B1B',
-            }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Invite Code</div>
-              <input
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Enter invite code"
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Your Email</div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@clinic.org"
-                autoComplete="email"
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Password</div>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={show ? 'text' : 'password'}
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  placeholder="Create a password"
-                  style={{
-                    width: '100%',
-                    borderRadius: '12px',
-                    padding: '12px 16px',
-                    backgroundColor: 'rgba(255,255,255,0.9)',
-                    border: '1px solid #E5E7EB',
-                    fontSize: '16px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <button
-                  onClick={() => setShow(!show)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {show ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ width: '90%' }}>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Confirm Password</div>
-              <input
-                type={show ? 'text' : 'password'}
-                value={pw2}
-                onChange={(e) => setPw2(e.target.value)}
-                placeholder="Repeat password"
-                style={{
-                  width: '100%',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  border: '1px solid #E5E7EB',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSubmit}
-              disabled={isLoading}
-              style={{
-                width: '90%',
-                padding: '12px 30px',
-                borderRadius: '10px',
-                border: 'none',
-                backgroundColor: '#2D3748',
-                color: 'white',
-                fontSize: '16px',
-                fontWeight: 600,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.5 : 1,
-              }}
-            >
-              {isLoading ? 'Creating account...' : 'Create Account'}
-            </motion.button>
-          </div>
-        </div>
-      </div>
-    </PageShell>
-  );
-}
-
-// -----------------------------
+// Clinician Registration (Medical Invitation Token Redemption)
 // Hidden Admin Login Modal
 // -----------------------------
 function AdminLoginModal({ onClose, router }: { onClose: () => void; router: any }) {
@@ -1427,7 +1276,7 @@ function AdminLoginModal({ onClose, router }: { onClose: () => void; router: any
 // -----------------------------
 export default function AuthScreens() {
   const router = useRouter();
-  const [screen, setScreen] = useState<'role'|'clinician'|'patient'|'invite'>('role');
+  const [screen, setScreen] = useState<'role'|'clinician'|'patient'>('role');
   const [showAdminModal, setShowAdminModal] = useState(false);
   const secretTapRef = useRef({ count: 0, lastTap: 0 });
 
@@ -1441,15 +1290,6 @@ export default function AuthScreens() {
     router.push('/app?init=true');
   };
 
-  const handleInviteSuccess = (user: any) => {
-    console.log('Account created successfully:', user);
-    // Store user data for immediate access
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('temp_user_data', JSON.stringify(user));
-    }
-    // Redirect to main app
-    router.push('/app?init=true');
-  };
 
   const resetSecretTap = () => {
     secretTapRef.current.count = 0;
@@ -1477,13 +1317,12 @@ export default function AuthScreens() {
     <div>
       {screen === 'role' && (
         <RoleSelection
-          onSelect={(r) => setScreen(r === 'clinician' ? 'clinician' : r === 'patient' ? 'patient' : 'invite')}
+          onSelect={(r) => setScreen(r === 'clinician' ? 'clinician' : 'patient')}
           onSecretTap={handleLogoSecretTap}
         />
       )}
       {screen === 'clinician' && <MedicalLogin onBack={() => setScreen('role')} onLoginSuccess={handleLoginSuccess} />}
       {screen === 'patient' && <PatientLogin onBack={() => setScreen('role')} onLoginSuccess={handleLoginSuccess} />}
-      {screen === 'invite' && <InviteCode onBack={() => setScreen('role')} onSuccess={handleInviteSuccess} />}
 
       {showAdminModal && <AdminLoginModal onClose={closeAdminModal} router={router} />}
     </div>

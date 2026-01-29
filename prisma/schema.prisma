@@ -119,14 +119,14 @@ model PatientInvite {
 model PasswordResetRequest {
   id            String   @id @default(cuid())
   userId        String
-  requestedById String
+  requestedById String?    // Optional: null for self-service, User ID for admin-initiated
   tokenHash     String
   expiresAt     DateTime
   usedAt        DateTime?
   createdAt     DateTime @default(now())
 
-  user        User @relation("PasswordResetUser", fields: [userId], references: [id], onDelete: Cascade)
-  requestedBy User @relation("PasswordResetAdmin", fields: [requestedById], references: [id], onDelete: Cascade)
+  user        User  @relation("PasswordResetUser", fields: [userId], references: [id], onDelete: Cascade)
+  requestedBy User? @relation("PasswordResetAdmin", fields: [requestedById], references: [id], onDelete: Cascade)
 
   @@index([tokenHash])
   @@index([expiresAt])

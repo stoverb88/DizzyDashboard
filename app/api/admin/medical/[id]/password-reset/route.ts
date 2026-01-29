@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { sendPasswordResetEmail } from '@/lib/email'
 
 export async function POST(
   request: NextRequest,
@@ -65,11 +66,40 @@ export async function POST(
       },
     })
 
+    // Fetch clinician email for sending reset email
+    const clinicianWithEmail = await prisma.user.findUnique({
+      where: { id: clinician.id },
+      select: { email: true, name: true },
+    })
+
+    // Send password reset email (non-blocking)
+    let emailSent = false
+    if (clinicianWithEmail?.email) {
+      const emailResult = await sendPasswordResetEmail(
+        clinicianWithEmail.email,
+        resetToken, // Plain token (not hashed)
+        24,
+        true // requestedByAdmin = true (admin-initiated)
+      )
+
+      emailSent = emailResult.success
+
+      if (!emailResult.success) {
+        console.error('Failed to send password reset email:', emailResult.error)
+        // Note: We continue anyway - admin can manually share the token
+      }
+    } else {
+      console.warn('Cannot send password reset email - clinician has no email address')
+    }
+
     return NextResponse.json({
       success: true,
       resetToken,
       expiresAt: resetRequest.expiresAt.toISOString(),
-      message: 'Password reset window created for 24 hours',
+      emailSent,
+      message: emailSent
+        ? 'Password reset window created and email sent successfully'
+        : 'Password reset window created for 24 hours',
     })
   } catch (error) {
     console.error('Error creating password reset window:', error)
