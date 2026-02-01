@@ -25,13 +25,13 @@ interface CueStep {
 
 const CUE_SEQUENCE: CueStep[] = [
   { type: 'eyes-left', text: 'Eyes Left', target: 'left' },
-  { type: 'pause', duration: 1500 },
+  { type: 'pause', duration: 1000 },
   { type: 'head-left', text: 'Head Left', target: 'left' },
-  { type: 'pause', duration: 1000 },
+  { type: 'pause', duration: 800 },
   { type: 'eyes-right', text: 'Eyes Right', target: 'right' },
-  { type: 'pause', duration: 1500 },
-  { type: 'head-right', text: 'Head Right', target: 'right' },
   { type: 'pause', duration: 1000 },
+  { type: 'head-right', text: 'Head Right', target: 'right' },
+  { type: 'pause', duration: 800 },
 ];
 
 export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVORRunningProps) {
@@ -221,19 +221,33 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
     overflow: 'hidden',
   };
 
-  const targetStyle = (side: 'left' | 'right', isActive: boolean): React.CSSProperties => ({
+  const leftTargetStyle: React.CSSProperties = {
     position: 'absolute',
-    [side]: '10%',
+    left: '10%',
     top: '50%',
-    transform: `translateY(-50%) ${isActive ? 'scale(1.1)' : 'scale(1)'}`,
-    fontSize: isActive ? '120px' : '100px',
+    transform: `translateY(-50%) ${activeTarget === 'left' ? 'scale(1.1)' : 'scale(1)'}`,
+    fontSize: activeTarget === 'left' ? '120px' : '100px',
     fontWeight: '700',
     fontFamily: 'monospace',
-    color: isActive ? '#1A202C' : '#CBD5E0',
+    color: activeTarget === 'left' ? '#1A202C' : '#CBD5E0',
     transition: 'all 0.3s ease',
     userSelect: 'none',
-    textShadow: isActive ? '0 0 20px rgba(59, 130, 246, 0.3)' : 'none',
-  });
+    textShadow: activeTarget === 'left' ? '0 0 20px rgba(59, 130, 246, 0.3)' : 'none',
+  };
+
+  const rightTargetStyle: React.CSSProperties = {
+    position: 'absolute',
+    right: '10%',
+    top: '50%',
+    transform: `translateY(-50%) ${activeTarget === 'right' ? 'scale(1.1)' : 'scale(1)'}`,
+    fontSize: activeTarget === 'right' ? '120px' : '100px',
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    color: activeTarget === 'right' ? '#1A202C' : '#CBD5E0',
+    transition: 'all 0.3s ease',
+    userSelect: 'none',
+    textShadow: activeTarget === 'right' ? '0 0 20px rgba(59, 130, 246, 0.3)' : 'none',
+  };
 
   const cueTextStyle: React.CSSProperties = {
     position: 'absolute',
@@ -320,12 +334,12 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
             </div>
 
             {/* Left Target */}
-            <div style={targetStyle('left', activeTarget === 'left')}>
+            <div style={leftTargetStyle}>
               X
             </div>
 
             {/* Right Target */}
-            <div style={targetStyle('right', activeTarget === 'right')}>
+            <div style={rightTargetStyle}>
               X
             </div>
           </motion.div>
