@@ -5,16 +5,20 @@ import { motion } from 'framer-motion';
 import { VORx1Setup, VORx1Parameters } from './VORx1Setup';
 import { VORx1Running } from './VORx1Running';
 import { VORx1Results, VORx1ResultsData } from './VORx1Results';
+import { TwoTargetVORSetup, TwoTargetVORParameters } from './TwoTargetVORSetup';
+import { TwoTargetVORRunning } from './TwoTargetVORRunning';
+import { TwoTargetVORResults, TwoTargetVORResultsData } from './TwoTargetVORResults';
 import { PatientDashboard } from './PatientDashboard';
 import { useSession } from '@/lib/use-session';
 
-type ExerciseView = 'library' | 'vorx1-setup' | 'vorx1-running' | 'vorx1-results';
+type ExerciseView = 'library' | 'vorx1-setup' | 'vorx1-running' | 'vorx1-results' | 'twotarget-setup' | 'twotarget-running' | 'twotarget-results';
 
 export function ExercisesTab() {
   const { user } = useSession();
   const [isMobile, setIsMobile] = useState(false);
   const [currentView, setCurrentView] = useState<ExerciseView>('library');
   const [exerciseParams, setExerciseParams] = useState<VORx1Parameters | null>(null);
+  const [twoTargetParams, setTwoTargetParams] = useState<TwoTargetVORParameters | null>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -92,6 +96,7 @@ export function ExercisesTab() {
   const handleBackToLibrary = () => {
     setCurrentView('library');
     setExerciseParams(null);
+    setTwoTargetParams(null);
   };
 
   const handleStartExercise = (params: VORx1Parameters) => {
@@ -170,6 +175,50 @@ export function ExercisesTab() {
     }
   };
 
+  // Two-Target VOR Handlers
+  const handleTwoTargetVORClick = () => {
+    setCurrentView('twotarget-setup');
+  };
+
+  const handleTwoTargetStartExercise = (params: TwoTargetVORParameters) => {
+    setTwoTargetParams(params);
+    setTimeout(() => {
+      setCurrentView('twotarget-running');
+    }, 0);
+  };
+
+  const handleTwoTargetExerciseComplete = () => {
+    setCurrentView('twotarget-results');
+  };
+
+  const handleTwoTargetExerciseStop = () => {
+    setCurrentView('twotarget-setup');
+  };
+
+  const handleTwoTargetResultsComplete = async (results: TwoTargetVORResultsData) => {
+    try {
+      const response = await fetch('/api/exercises/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exerciseType: 'TwoTargetVOR',
+          params: twoTargetParams,
+          results: results,
+          actualDuration: twoTargetParams?.duration,
+          cycleCount: twoTargetParams ? Math.floor(twoTargetParams.duration / 9) : 0
+        })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save exercise session');
+      }
+    } catch (error) {
+      console.error('Error saving exercise session:', error);
+    }
+
+    handleBackToLibrary();
+  };
+
   // Render different views based on state
   if (currentView === 'vorx1-setup') {
     return <VORx1Setup onBack={handleBackToLibrary} onStartExercise={handleStartExercise} />;
@@ -191,6 +240,30 @@ export function ExercisesTab() {
         params={exerciseParams}
         onComplete={handleResultsComplete}
         onRepeatOtherDirection={handleRepeatOtherDirection}
+      />
+    );
+  }
+
+  // Two-Target VOR Views
+  if (currentView === 'twotarget-setup') {
+    return <TwoTargetVORSetup onBack={handleBackToLibrary} onStartExercise={handleTwoTargetStartExercise} />;
+  }
+
+  if (currentView === 'twotarget-running' && twoTargetParams) {
+    return (
+      <TwoTargetVORRunning
+        params={twoTargetParams}
+        onComplete={handleTwoTargetExerciseComplete}
+        onStop={handleTwoTargetExerciseStop}
+      />
+    );
+  }
+
+  if (currentView === 'twotarget-results' && twoTargetParams) {
+    return (
+      <TwoTargetVORResults
+        params={twoTargetParams}
+        onComplete={handleTwoTargetResultsComplete}
       />
     );
   }
@@ -251,13 +324,16 @@ export function ExercisesTab() {
           </div>
         </motion.div>
 
-        {/* Future Exercises (Placeholder) */}
-        <div style={{
-          ...cardStyle,
-          opacity: 0.5,
-          cursor: 'not-allowed',
-          backgroundColor: '#F7FAFC',
-        }}>
+        {/* Two-Target VOR Exercise Card */}
+        <motion.div
+          style={cardStyle}
+          onClick={handleTwoTargetVORClick}
+          whileHover={{
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+            transform: 'translateY(-2px)',
+          }}
+          whileTap={{ scale: 0.98 }}
+        >
           <div style={{
             display: 'flex',
             alignItems: 'flex-start',
@@ -267,22 +343,29 @@ export function ExercisesTab() {
               <h3 style={{
                 fontSize: '1.2rem',
                 fontWeight: '600',
-                color: '#718096',
+                color: '#1A202C',
                 marginBottom: '8px',
               }}>
-                Additional Exercises
+                Two-Target VOR
               </h3>
               <p style={{
                 fontSize: '0.9rem',
-                color: '#A0AEC0',
+                color: '#4A5568',
                 marginBottom: '0',
                 lineHeight: '1.5',
               }}>
-                More rehabilitation exercises coming soon...
+                Train the VOR by shifting eyes to a target first, then following with head movement. Uses audio cues for timing.
               </p>
             </div>
+            <div style={{
+              fontSize: '1.5rem',
+              color: '#A0AEC0',
+              marginLeft: '16px',
+            }}>
+              →
+            </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Generate Patient Code Button - Only for Medical Professionals */}
         {user?.role === 'MEDICAL_PROFESSIONAL' && (
