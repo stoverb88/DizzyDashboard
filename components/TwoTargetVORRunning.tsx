@@ -322,26 +322,9 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
             key="running"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{
-              width: '100%',
-              height: '100%',
-              position: 'relative',
-            }}
+            style={cueTextStyle}
           >
-            {/* Current Cue Text */}
-            <div style={cueTextStyle}>
-              {currentCueText}
-            </div>
-
-            {/* Left Target */}
-            <div style={leftTargetStyle}>
-              X
-            </div>
-
-            {/* Right Target */}
-            <div style={rightTargetStyle}>
-              X
-            </div>
+            {currentCueText}
           </motion.div>
         )}
 
@@ -361,6 +344,18 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Targets - show during running phase, outside AnimatePresence for proper positioning */}
+      {phase === 'running' && (
+        <>
+          <div style={leftTargetStyle}>
+            X
+          </div>
+          <div style={rightTargetStyle}>
+            X
+          </div>
+        </>
+      )}
 
       {/* Progress Bar - only show during running phase */}
       {phase === 'running' && (
