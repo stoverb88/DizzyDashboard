@@ -222,7 +222,7 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
   };
 
   const leftTargetStyle: React.CSSProperties = {
-    position: 'absolute',
+    position: 'fixed',
     left: '10%',
     top: '50%',
     transform: `translateY(-50%) ${activeTarget === 'left' ? 'scale(1.1)' : 'scale(1)'}`,
@@ -233,10 +233,11 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
     transition: 'all 0.3s ease',
     userSelect: 'none',
     textShadow: activeTarget === 'left' ? '0 0 20px rgba(59, 130, 246, 0.3)' : 'none',
+    zIndex: 10,
   };
 
   const rightTargetStyle: React.CSSProperties = {
-    position: 'absolute',
+    position: 'fixed',
     right: '10%',
     top: '50%',
     transform: `translateY(-50%) ${activeTarget === 'right' ? 'scale(1.1)' : 'scale(1)'}`,
@@ -247,6 +248,7 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
     transition: 'all 0.3s ease',
     userSelect: 'none',
     textShadow: activeTarget === 'right' ? '0 0 20px rgba(59, 130, 246, 0.3)' : 'none',
+    zIndex: 10,
   };
 
   const cueTextStyle: React.CSSProperties = {
@@ -345,8 +347,8 @@ export function TwoTargetVORRunning({ params, onComplete, onStop }: TwoTargetVOR
         )}
       </AnimatePresence>
 
-      {/* Targets - show during running phase, outside AnimatePresence for proper positioning */}
-      {phase === 'running' && (
+      {/* Targets - show during countdown and running phases */}
+      {(phase === 'countdown' || phase === 'running') && (
         <>
           <div style={leftTargetStyle}>
             X
