@@ -349,27 +349,10 @@ export function TwoTargetVORSetup({ onBack, onStartExercise }: TwoTargetVORSetup
           )}
         </div>
 
-        {/* Instructions Card */}
-        <div style={{ ...cardStyle, backgroundColor: '#F7FAFC' }}>
-          <h3 style={{ ...sectionTitleStyle, marginTop: 0, color: '#2D3748' }}>How to Perform</h3>
-          <ol style={{
-            fontSize: '0.9rem',
-            color: '#4A5568',
-            lineHeight: '1.6',
-            paddingLeft: '20px',
-            margin: 0,
-          }}>
-            <li style={{ marginBottom: '8px' }}>Position two targets (X marks) at eye level, about 8-10 inches apart</li>
-            <li style={{ marginBottom: '8px' }}>When you hear "Eyes Left/Right" - move your <strong>eyes only</strong> to look at that target</li>
-            <li style={{ marginBottom: '8px' }}>When you hear "Head Left/Right" - turn your <strong>head</strong> to meet your eyes at the target</li>
-            <li>Goal: Keep the target image clear during the head movement</li>
-          </ol>
-        </div>
-
         {/* Action Button */}
-        <div style={{ marginTop: '16px' }}>
+        <div style={{ marginTop: '16px', overflow: 'hidden' }}>
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleStartExercise}
             style={{
