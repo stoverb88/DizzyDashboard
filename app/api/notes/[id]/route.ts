@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { kv } from '@vercel/kv'
 import { rateLimit, trackFailedAttempt, resetFailedAttempts, getClientIp } from '@/lib/rate-limit'
 import { normalizeChartId, isValidChartId } from '@/lib/chart-id'
-
-interface NoteData {
-  narrative: string
-  createdAt: number
-}
+import { decryptNote, deriveKvKey, isEncryptedNote, type StoredNote } from '@/lib/encryption'
 
 export async function GET(
   request: NextRequest,
@@ -53,7 +49,6 @@ export async function GET(
 
     const chartId = normalizeChartId(params.id)
 
-    // Validate chartId format (now supports both 6 and 8 character codes for transition)
     if (!isValidChartId(chartId)) {
       await trackFailedAttempt(clientIp)
       return NextResponse.json(
@@ -67,16 +62,25 @@ export async function GET(
       )
     }
 
+    // Derive the HMAC-based KV key for this chartId
+    let kvKey: string
+    try {
+      kvKey = await deriveKvKey(chartId)
+    } catch (keyError) {
+      console.error('Key derivation error:', keyError instanceof Error ? keyError.message : 'Unknown error')
+      return NextResponse.json(
+        { error: 'Server configuration error. Please contact support.' },
+        { status: 500 }
+      )
+    }
+
     let noteDataRaw
     try {
-      noteDataRaw = await kv.get(`vestibular:note:${chartId}`)
+      noteDataRaw = await kv.get(`vestibular:note:${kvKey}`)
     } catch (kvError) {
-      console.error('KV Retrieval Error:', kvError)
+      console.error('KV retrieval error:', kvError instanceof Error ? kvError.message : 'Unknown error')
       return NextResponse.json(
-        {
-          error: 'Database temporarily unavailable. Please try again in a moment.',
-          retryable: true
-        },
+        { error: 'Database temporarily unavailable. Please try again in a moment.', retryable: true },
         { status: 503 }
       )
     }
@@ -94,76 +98,80 @@ export async function GET(
       )
     }
 
-    // Handle both string and object responses from KV
-    let noteData: NoteData
+    // Parse the stored value
+    let parsedNote: StoredNote
     try {
       if (typeof noteDataRaw === 'string') {
-        noteData = JSON.parse(noteDataRaw)
+        parsedNote = JSON.parse(noteDataRaw) as StoredNote
       } else {
-        noteData = noteDataRaw as NoteData
+        parsedNote = noteDataRaw as StoredNote
       }
-    } catch (parseError) {
-      console.error('Error parsing note data:', parseError)
+    } catch {
+      console.error('Error parsing stored note data')
       return NextResponse.json(
         { error: 'Stored note data is corrupted' },
         { status: 500 }
       )
     }
 
-    // Validate note data structure
-    if (!noteData.narrative || typeof noteData.createdAt !== 'number') {
-      console.error('Invalid note data structure:', noteData)
+    // Decrypt if v1 encrypted note; pass through if legacy plaintext
+    let narrative: string
+    let createdAt: number
+
+    if (isEncryptedNote(parsedNote)) {
+      // v1 encrypted note path
+      createdAt = parsedNote.createdAt
+      try {
+        narrative = await decryptNote(chartId, parsedNote)
+      } catch (decryptError) {
+        console.error('Decryption error:', decryptError instanceof Error ? decryptError.message : 'Unknown error')
+        return NextResponse.json(
+          { error: 'Failed to decrypt chart note. The note may be corrupted.' },
+          { status: 500 }
+        )
+      }
+    } else {
+      console.error('Unexpected unencrypted note format')
       return NextResponse.json(
         { error: 'Stored note data is invalid' },
         { status: 500 }
       )
     }
 
-    // Check if note has expired (just in case)
+    // Check if note has expired (defense-in-depth; KV TTL should handle this)
     const now = Date.now()
     const seventyTwoHours = 72 * 60 * 60 * 1000
 
-    if (now - noteData.createdAt > seventyTwoHours) {
-      // Clean up expired note
+    if (now - createdAt > seventyTwoHours) {
       try {
-        await kv.del(`vestibular:note:${chartId}`)
-      } catch (delError) {
-        console.error('Error deleting expired note:', delError)
-        // Continue anyway since note is expired
+        await kv.del(`vestibular:note:${kvKey}`)
+      } catch {
+        // Continue anyway — note is expired regardless
       }
       await trackFailedAttempt(clientIp)
       return NextResponse.json(
         { error: 'Chart note has expired.' },
-        { status: 410 } // 410 Gone - resource existed but is no longer available
+        { status: 410 } // 410 Gone
       )
     }
 
-    // Successful retrieval - reset failure counter
+    // Successful retrieval — reset failure counter
     await resetFailedAttempts(clientIp)
 
     return NextResponse.json({
-      narrative: noteData.narrative,
-      createdAt: noteData.createdAt,
-      expiresAt: noteData.createdAt + seventyTwoHours
+      narrative,
+      createdAt,
+      expiresAt: createdAt + seventyTwoHours
     }, {
       headers: {
         'X-RateLimit-Remaining': rateLimitResult.remaining.toString()
       }
     })
   } catch (error) {
-    // Log detailed error for debugging
-    console.error('Error retrieving note:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      type: error?.constructor?.name
-    })
-
+    console.error('Unexpected error retrieving note:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json(
-      {
-        error: 'An unexpected error occurred while retrieving the note',
-        retryable: true
-      },
+      { error: 'An unexpected error occurred while retrieving the note', retryable: true },
       { status: 500 }
     )
   }
-} 
+}
