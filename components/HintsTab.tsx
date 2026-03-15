@@ -2,6 +2,15 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { colors, shadows, borderRadius, transitions, typography } from '../styles/design-tokens';
 import { triggerVeryLightHaptic } from '../utils/haptics';
+import { ReferencesDrawer } from './ReferencesDrawer';
+
+function Cite({ nums }: { nums: number[] }) {
+  return (
+    <sup style={{ fontSize: '10px', color: '#667eea', fontWeight: '700', marginLeft: '2px' }}>
+      [{nums.join(',')}]
+    </sup>
+  );
+}
 
 const hintsData = [
   {
@@ -11,7 +20,8 @@ const hintsData = [
     peripheralFinding: 'Corrective Saccade',
     peripheralInfo: 'Indicates a peripheral vestibular lesion (e.g., vestibular neuritis).',
     centralFinding: 'Normal Head Impulse',
-    centralInfo: 'In a patient with ongoing vertigo, a normal test is a red flag for a central cause like a stroke.'
+    centralInfo: 'In a patient with ongoing vertigo, a normal test is a red flag for a central cause like a stroke.',
+    cite: [2, 5, 9],
   },
   {
     id: 'n',
@@ -20,7 +30,8 @@ const hintsData = [
     peripheralFinding: 'Unidirectional Nystagmus',
     peripheralInfo: 'Horizontal nystagmus that does not change direction with gaze.',
     centralFinding: 'Direction-Changing Nystagmus',
-    centralInfo: 'Nystagmus changes direction with gaze, or is purely vertical/torsional.'
+    centralInfo: 'Nystagmus changes direction with gaze, or is purely vertical/torsional.',
+    cite: [2, 5, 9],
   },
   {
     id: 'ts',
@@ -29,7 +40,8 @@ const hintsData = [
     peripheralFinding: 'No Skew Deviation',
     peripheralInfo: 'Eyes remain aligned, which is a normal finding.',
     centralFinding: 'Skew Deviation Present',
-    centralInfo: 'Vertical misalignment of the eyes when one is covered, suggesting a central lesion.'
+    centralInfo: 'Vertical misalignment of the eyes when one is covered, suggesting a central lesion.',
+    cite: [2, 5, 9],
   }
 ];
 
@@ -114,6 +126,7 @@ export function HintsTab() {
     n: null,
     ts: null,
   });
+  const [isRefsOpen, setIsRefsOpen] = useState(false);
 
   const handleSelection = (id: string, value: 'peripheral' | 'central') => {
     setSelections(prev => ({
@@ -163,6 +176,7 @@ export function HintsTab() {
       maxWidth: '100%',
       overflow: 'hidden'
     }}>
+      <ReferencesDrawer isOpen={isRefsOpen} onClose={() => setIsRefsOpen(false)} />
       {hintsData.map(item => (
         <div key={item.id} style={{
           marginBottom: '12px',
@@ -222,7 +236,7 @@ export function HintsTab() {
                   fontSize: '11px',
                   lineHeight: '1.4',
                   wordWrap: 'break-word'
-                }}>{item.centralInfo}</p>
+                }}>{item.centralInfo}{item.cite && <Cite nums={item.cite} />}</p>
             </div>
           </div>
         </div>
@@ -258,6 +272,14 @@ export function HintsTab() {
             fontSize: '13px'
           }}>{nextSteps.text}</p>
         </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 20px 16px 20px' }}>
+        <button
+          onClick={() => setIsRefsOpen(true)}
+          style={{ backgroundColor: '#667eea', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '16px', color: 'white', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)' }}
+        >
+          References
+        </button>
       </div>
     </div>
   );

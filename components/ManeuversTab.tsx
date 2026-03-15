@@ -3,6 +3,15 @@ import { VideoCarousel } from './VideoCarousel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CanalSimulation } from './CanalSimulation';
 import { Button } from './ui/Button';
+import { ReferencesDrawer } from './ReferencesDrawer';
+
+function Cite({ nums }: { nums: number[] }) {
+  return (
+    <sup style={{ fontSize: '10px', color: '#667eea', fontWeight: '700', marginLeft: '2px' }}>
+      [{nums.join(',')}]
+    </sup>
+  );
+}
 
 const maneuversData = [
   {
@@ -32,6 +41,7 @@ export function ManeuversTab() {
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isRecurrenceOpen, setIsRecurrenceOpen] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [isRefsOpen, setIsRefsOpen] = useState(false);
 
   const handleNext = () => {
     setManeuverIndex((prev) => Math.min(prev + 1, maneuversData.length - 1));
@@ -48,7 +58,8 @@ export function ManeuversTab() {
       {showSimulation && (
         <CanalSimulation onClose={() => setShowSimulation(false)} />
       )}
-      
+      <ReferencesDrawer isOpen={isRefsOpen} onClose={() => setIsRefsOpen(false)} />
+
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#f4f4f9' }}>
       <div style={{textAlign: 'center', padding: '20px 20px 0 20px'}}>
         <h2 style={{ color: '#333', margin: 0, paddingBottom: '10px' }}>{currentManeuver.title}</h2>
@@ -140,7 +151,7 @@ export function ManeuversTab() {
                 style={{ overflow: 'hidden' }}
               >
                 <p style={{ color: '#1D4ED8', lineHeight: 1.6, fontSize: '14px', margin: 0 }}>
-                  Avoid rapid head movements for 24-48 hours, may sleep with extra 1-2 pillows or elevate HOB for first night, try and avoid sleeping on affected side. No restrictions on driving or normal activities.
+                  Avoid rapid head movements for 24-48 hours, may sleep with extra 1-2 pillows or elevate HOB for first night, try and avoid sleeping on affected side. No restrictions on driving or normal activities.<Cite nums={[3]} />
                 </p>
               </motion.div>
             )}
@@ -169,13 +180,21 @@ export function ManeuversTab() {
                     In the three years after treatment, the symptoms return in 30% of people who had BPPV. If this happens, you should contact your Physical Therapist. If he or she finds that the crystals are back out of place, they may perform the maneuver again. Research shows that the best treatment is the maneuver, and it can work again and again, though sometimes more quickly or more slowly.
                 </p>
                 <p style={{ color: "#1D4ED8", lineHeight: 1.6, fontSize: '14px', margin: "8px 0 0 0" }}>
-                    If the dizziness comes back, the crystals may be in a different place, so your next repositioning may be different than before. You should NEVER try to put the crystals back on your own unless your therapist decides you should and shows you how. Doing so can make your problem worse.
+                    If the dizziness comes back, the crystals may be in a different place, so your next repositioning may be different than before. You should NEVER try to put the crystals back on your own unless your therapist decides you should and shows you how. Doing so can make your problem worse.<Cite nums={[3, 7]} />
                 </p>
               </motion.div>
             )}
             </AnimatePresence>
           </div>
         </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 20px 16px 20px' }}>
+        <button
+          onClick={() => setIsRefsOpen(true)}
+          style={{ backgroundColor: '#667eea', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '16px', color: 'white', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)' }}
+        >
+          References
+        </button>
       </div>
     </div>
     </>

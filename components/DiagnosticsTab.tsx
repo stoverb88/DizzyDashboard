@@ -1,9 +1,23 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ReferencesDrawer } from './ReferencesDrawer';
 
-const diagnosticCriteria = [
+function Cite({ nums }: { nums: number[] }) {
+  return (
+    <sup style={{ fontSize: '10px', color: '#667eea', fontWeight: '700', marginLeft: '2px' }}>
+      [{nums.join(',')}]
+    </sup>
+  );
+}
+
+const diagnosticCriteria: Array<{
+  title: string; color: string; bgColor: string;
+  criteria: any[]; treatment?: string[]; vrt?: string[];
+  cite: number[];
+}> = [
   {
     title: "BPPV",
+    cite: [2, 5, 7],
     color: "#3B82F6",
     bgColor: "#EFF6FF",
     criteria: [
@@ -26,6 +40,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Meniere disease",
+    cite: [2, 5],
     color: "#0891B2",
     bgColor: "#F0F9FF",
     criteria: [
@@ -43,6 +58,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Vestibular neuritis",
+    cite: [1, 2, 5],
     color: "#059669",
     bgColor: "#ECFDF5",
     criteria: [
@@ -65,6 +81,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Vestibular labyrinthitis",
+    cite: [2, 5],
     color: "#A855F7",
     bgColor: "#F3E8FF",
     criteria: [
@@ -87,6 +104,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Vestibular migraine",
+    cite: [1, 2],
     color: "#D97706",
     bgColor: "#FFFBEB",
     criteria: [
@@ -111,6 +129,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Superior canal dehiscence",
+    cite: [2, 10],
     color: "#DC2626",
     bgColor: "#FEF2F2",
     criteria: [
@@ -142,6 +161,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Persistent postural-perceptual dizziness",
+    cite: [2, 8],
     color: "#3B82F6",
     bgColor: "#EFF6FF",
     criteria: [
@@ -165,6 +185,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Bilateral vestibulopathy",
+    cite: [2, 8],
     color: "#0891B2",
     bgColor: "#F0F9FF",
     criteria: [
@@ -188,6 +209,7 @@ const diagnosticCriteria = [
   },
   {
     title: "Perilymphatic fistula",
+    cite: [2],
     color: "#059669",
     bgColor: "#ECFDF5",
     criteria: [
@@ -227,6 +249,7 @@ export function DiagnosticsTab() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
   const [expandedVRT, setExpandedVRT] = useState<Set<number>>(new Set());
+  const [isRefsOpen, setIsRefsOpen] = useState(false);
 
   const handleCardClick = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
@@ -266,9 +289,14 @@ export function DiagnosticsTab() {
       return (
         <div>
           <h4 style={{ color: '#1f2937', margin: '0 0 12px 0', fontWeight: '600', fontSize: '16px' }}>Treatment Recommendations:</h4>
-          {item.treatment?.map((treatment: string, i: number) => (
-            <p key={i} style={{ color: '#374151', margin: '0 0 12px 0', lineHeight: 1.6 }}>&bull; {treatment}</p>
-          ))}
+          {item.treatment?.map((treatment: string, i: number) => {
+            const isLast = i === item.treatment.length - 1;
+            return (
+              <p key={i} style={{ color: '#374151', margin: '0 0 12px 0', lineHeight: 1.6 }}>
+                &bull; {treatment}{isLast && item.cite && <Cite nums={item.cite} />}
+              </p>
+            );
+          })}
           
           {item.vrt && (
             <>
@@ -307,9 +335,14 @@ export function DiagnosticsTab() {
                     style={{ overflow: 'hidden' }}
                   >
                     <div style={{ paddingLeft: '12px', paddingTop: '8px' }}>
-                      {item.vrt.map((vrt: string, i: number) => (
-                        <p key={i} style={{ color: '#374151', margin: '0 0 12px 0', lineHeight: 1.6 }}>&bull; {vrt}</p>
-                      ))}
+                      {item.vrt.map((vrt: string, i: number) => {
+                        const isLast = i === item.vrt.length - 1;
+                        return (
+                          <p key={i} style={{ color: '#374151', margin: '0 0 12px 0', lineHeight: 1.6 }}>
+                            &bull; {vrt}{isLast && item.cite && <Cite nums={item.cite} />}
+                          </p>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 )}
@@ -320,20 +353,31 @@ export function DiagnosticsTab() {
       );
     } else {
       // Diagnostic criteria side
+      const criteria = item.criteria;
       return (
         <div>
-          {item.criteria.map((criterion: any, i: number) => {
+          {criteria.map((criterion: any, i: number) => {
+            const isLast = i === criteria.length - 1;
             if (typeof criterion === 'string') {
-              return <p key={i} style={{ color: '#374151', margin: '0 0 12px 0', lineHeight: 1.6 }}>&bull; {criterion}</p>
+              return (
+                <p key={i} style={{ color: '#374151', margin: '0 0 12px 0', lineHeight: 1.6 }}>
+                  &bull; {criterion}{isLast && item.cite && <Cite nums={item.cite} />}
+                </p>
+              );
             }
             return (
               <div key={i} style={{ marginBottom: '16px' }}>
                 <h4 style={{ color: '#1f2937', margin: '0 0 8px 0', fontWeight: '600' }}>{criterion.heading}:</h4>
-                {criterion.points.map((point: string, pIdx: number) => (
-                  <p key={pIdx} style={{ color: '#374151', margin: '0 0 8px 12px', lineHeight: 1.6 }}>- {point}</p>
-                ))}
+                {criterion.points.map((point: string, pIdx: number) => {
+                  const isLastPoint = isLast && pIdx === criterion.points.length - 1;
+                  return (
+                    <p key={pIdx} style={{ color: '#374151', margin: '0 0 8px 12px', lineHeight: 1.6 }}>
+                      - {point}{isLastPoint && item.cite && <Cite nums={item.cite} />}
+                    </p>
+                  );
+                })}
               </div>
-            )
+            );
           })}
         </div>
       );
@@ -342,6 +386,7 @@ export function DiagnosticsTab() {
 
   return (
     <div style={{ padding: '0 20px 20px 20px', backgroundColor: '#f4f4f9' }}>
+      <ReferencesDrawer isOpen={isRefsOpen} onClose={() => setIsRefsOpen(false)} />
       {diagnosticCriteria.map((item, index) => (
         <div key={item.title} style={{ marginBottom: '15px' }}>
           <motion.div
@@ -396,6 +441,14 @@ export function DiagnosticsTab() {
           </AnimatePresence>
         </div>
       ))}
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 20px 0' }}>
+        <button
+          onClick={() => setIsRefsOpen(true)}
+          style={{ backgroundColor: '#667eea', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '16px', color: 'white', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)' }}
+        >
+          References
+        </button>
+      </div>
     </div>
   );
 } 
